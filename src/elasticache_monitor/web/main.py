@@ -607,12 +607,20 @@ async def shard_detail(
                 desc('count')
             ).limit(30).all()
             
-            # Get recent commands
-            recent_commands = job_db.query(RedisCommand).filter(
+            # Get recent commands - convert to dicts to avoid DetachedInstanceError
+            recent_cmd_rows = job_db.query(RedisCommand).filter(
                 RedisCommand.shard_name == shard_name
             ).order_by(
                 desc(RedisCommand.timestamp)
             ).limit(100).all()
+            
+            recent_commands = [{
+                'datetime_utc': cmd.datetime_utc,
+                'command': cmd.command,
+                'key': cmd.key,
+                'client_ip': cmd.client_ip,
+                'args_json': cmd.args_json
+            } for cmd in recent_cmd_rows]
     
     return templates.TemplateResponse("shard_detail.html", {
         "request": request,
@@ -665,6 +673,7 @@ async def get_job_status(job_id: str, db: Session = Depends(get_db)):
         "status": job.status.value,
         "total_commands": max(job.total_commands, actual_total),
         "error_message": job.error_message,
+        "started_at": job.started_at.isoformat() + 'Z' if job.started_at else None,
         "shards": shards_status
     }
 
@@ -803,6 +812,126 @@ async def rerun_job(
     background_tasks.add_task(run_monitoring_job, new_job_id, password)
     
     return RedirectResponse(url=f"/jobs/{new_job_id}", status_code=303)
+
+
+# =============================================================================
+# COMPARE JOBS
+# =============================================================================
+
+@app.get("/compare", response_class=HTMLResponse)
+async def compare_jobs(
+    request: Request,
+    jobs: str = Query(default=""),
+    db: Session = Depends(get_db)
+):
+    """Compare multiple monitoring jobs side by side."""
+    job_ids = [j.strip() for j in jobs.split(",") if j.strip()]
+    
+    # Get all completed jobs for the selection UI
+    all_completed_jobs = db.query(MonitorJob).filter(
+        MonitorJob.status == JobStatus.completed
+    ).order_by(desc(MonitorJob.created_at)).limit(20).all()
+    
+    if len(job_ids) < 2:
+        return templates.TemplateResponse("compare.html", {
+            "request": request,
+            "jobs": [],
+            "all_jobs": all_completed_jobs,
+            "stats": {},
+            "page_title": "Compare Jobs"
+        })
+    
+    # Fetch job objects
+    job_objects = []
+    for job_id in job_ids[:4]:  # Max 4 jobs
+        job = db.query(MonitorJob).filter(MonitorJob.id == job_id).first()
+        if job and job.status == JobStatus.completed:
+            job_objects.append(job)
+    
+    if len(job_objects) < 2:
+        return templates.TemplateResponse("compare.html", {
+            "request": request,
+            "jobs": [],
+            "all_jobs": all_completed_jobs,
+            "stats": {},
+            "page_title": "Compare Jobs"
+        })
+    
+    # Gather stats for each job
+    stats = {}
+    for job in job_objects:
+        job_stats = {
+            "shard_count": 0,
+            "unique_keys": 0,
+            "unique_patterns": 0,
+            "top_commands": [],
+            "top_patterns": [],
+            "shard_distribution": []
+        }
+        
+        # Shard count from main DB
+        job_stats["shard_count"] = db.query(MonitorShard).filter(
+            MonitorShard.job_id == job.id
+        ).count()
+        
+        # Query job-specific DB for detailed stats
+        if job_db_exists(job.id):
+            with get_job_db_context(job.id) as job_db:
+                # Unique keys
+                unique_keys_result = job_db.query(
+                    func.count(func.distinct(RedisCommand.key))
+                ).filter(RedisCommand.key.isnot(None)).scalar()
+                job_stats["unique_keys"] = unique_keys_result or 0
+                
+                # Unique patterns
+                unique_patterns_result = job_db.query(
+                    func.count(func.distinct(RedisCommand.key_pattern))
+                ).filter(RedisCommand.key_pattern.isnot(None)).scalar()
+                job_stats["unique_patterns"] = unique_patterns_result or 0
+                
+                # Top commands
+                top_cmds = job_db.query(
+                    RedisCommand.command,
+                    func.count(RedisCommand.id).label('count')
+                ).group_by(
+                    RedisCommand.command
+                ).order_by(
+                    func.count(RedisCommand.id).desc()
+                ).limit(10).all()
+                job_stats["top_commands"] = [{"command": c, "count": cnt} for c, cnt in top_cmds]
+                
+                # Top patterns
+                top_pats = job_db.query(
+                    RedisCommand.key_pattern,
+                    func.count(RedisCommand.id).label('count')
+                ).filter(
+                    RedisCommand.key_pattern.isnot(None)
+                ).group_by(
+                    RedisCommand.key_pattern
+                ).order_by(
+                    func.count(RedisCommand.id).desc()
+                ).limit(10).all()
+                job_stats["top_patterns"] = [{"pattern": p, "count": cnt} for p, cnt in top_pats]
+                
+                # Shard distribution
+                shard_dist = job_db.query(
+                    RedisCommand.shard_name,
+                    func.count(RedisCommand.id).label('count')
+                ).group_by(
+                    RedisCommand.shard_name
+                ).order_by(
+                    RedisCommand.shard_name
+                ).all()
+                job_stats["shard_distribution"] = [{"shard_name": s, "count": cnt} for s, cnt in shard_dist]
+        
+        stats[job.id] = job_stats
+    
+    return templates.TemplateResponse("compare.html", {
+        "request": request,
+        "jobs": job_objects,
+        "stats": stats,
+        "page_title": "Compare Jobs"
+    })
 
 
 # =============================================================================

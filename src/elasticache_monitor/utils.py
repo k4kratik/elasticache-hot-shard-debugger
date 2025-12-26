@@ -43,15 +43,11 @@ def extract_key_pattern(key):
         flags=re.IGNORECASE
     )
     
-    # Replace timestamps with {TIMESTAMP}
-    key = re.sub(r'\d{10,13}', '{TIMESTAMP}', key)
-    
-    # Replace dates (YYYY-MM-DD) with {DATE}
+    # Replace dates (YYYY-MM-DD) with {DATE} - do this before numeric IDs
     key = re.sub(r'\d{4}-\d{2}-\d{2}', '{DATE}', key)
     
-    # Replace large user IDs with {USERID}
-    key = re.sub(r':\d{10,}:', ':{USERID}:', key)
-    key = re.sub(r':\d{10,}$', ':{USERID}', key)
+    # Replace long numeric IDs (user IDs, timestamps, etc.) with {ID}
+    key = re.sub(r'\d{6,}', '{ID}', key)
     
     # Replace hashes (32+ hex chars) with {HASH}
     key = re.sub(r'\b[0-9a-f]{32,}\b', '{HASH}', key, flags=re.IGNORECASE)
