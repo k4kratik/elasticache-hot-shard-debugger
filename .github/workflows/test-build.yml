@@ -53,7 +53,7 @@ jobs:
           print('✅ CLI functions accessible')
           from elasticache_monitor.web.main import app
           print('✅ FastAPI app accessible')
-          from elasticache_monitor.web.models import MonitoringJob, RedisCommand
+          from elasticache_monitor.web.models import MonitorJob, RedisCommand
           print('✅ Database models accessible')
           from elasticache_monitor.utils import extract_key_pattern
           print('✅ Utils functions accessible')
