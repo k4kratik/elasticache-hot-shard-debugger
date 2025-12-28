@@ -64,7 +64,7 @@ jobs:
         run: |
           echo "🎯 Testing CLI entry points..."
           elasticache-monitor --help
-          elasticache-web --help
+          elasticache-monitor-cli --help
           elasticache-endpoints --help
           elasticache-query --help
           echo "✅ CLI commands working"

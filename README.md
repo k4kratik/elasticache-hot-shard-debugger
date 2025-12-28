@@ -6,10 +6,10 @@ Debug hot shard issues in AWS ElastiCache (Redis/Valkey) clusters with a beautif
 
 ```bash
 # Install
-uv pip install -e .
+pip install elasticache-monitor
 
 # Run
-elasticache-web
+elasticache-monitor
 ```
 
 Open **http://localhost:8099** and start monitoring!
@@ -32,8 +32,8 @@ Open **http://localhost:8099** and start monitoring!
 ### 1. Start the Server
 
 ```bash
-elasticache-web              # Default port 8099
-elasticache-web --port 3000  # Custom port
+elasticache-monitor              # Default port 8099
+elasticache-monitor --port 3000  # Custom port
 ```
 
 ### 2. Create a Monitoring Job
@@ -108,7 +108,7 @@ The web UI defaults to replica endpoints.
 For scripting and automation, CLI tools are still available:
 
 ```bash
-elasticache-monitor -c my-cluster -p PASSWORD -d 60
+elasticache-monitor-cli -c my-cluster -p PASSWORD -d 60
 ```
 
 See [docs/CLI.md](docs/CLI.md) for full reference.

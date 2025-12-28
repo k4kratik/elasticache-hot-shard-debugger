@@ -4,32 +4,32 @@
 
 ## Commands
 
-### 1. `elasticache-monitor` - Automated Monitoring
+### 1. `elasticache-monitor-cli` - Automated Monitoring
 
 **Auto-discovers replica endpoints and monitors all shards.**
 
 ```bash
 # Basic usage
-elasticache-monitor -c my-cluster -p YOUR_PASSWORD
+elasticache-monitor-cli -c my-cluster -p YOUR_PASSWORD
 
 # With SQLite database storage for custom queries
-elasticache-monitor -c my-cluster -p YOUR_PASSWORD --save-to-db
+elasticache-monitor-cli -c my-cluster -p YOUR_PASSWORD --save-to-db
 
 # With bandwidth estimation (samples actual key sizes)
-elasticache-monitor -c my-cluster -p YOUR_PASSWORD --estimate-bandwidth
+elasticache-monitor-cli -c my-cluster -p YOUR_PASSWORD --estimate-bandwidth
 
 # Full power: database + bandwidth + longer duration
-elasticache-monitor -c my-cluster -p YOUR_PASSWORD -d 180 --save-to-db --estimate-bandwidth
+elasticache-monitor-cli -c my-cluster -p YOUR_PASSWORD -d 180 --save-to-db --estimate-bandwidth
 
 # Custom duration and output directory
-elasticache-monitor \
+elasticache-monitor-cli \
     -c my-cluster \
     -p YOUR_PASSWORD \
     -d 180 \
     -o /path/to/reports
 
 # Different region
-elasticache-monitor -c my-cluster -p PASSWORD -r us-east-1
+elasticache-cli -c my-cluster -p PASSWORD -r us-east-1
 ```
 
 **Options:**
@@ -147,12 +147,12 @@ elasticache-query --sql "SELECT command, COUNT(*) as cnt FROM monitor_logs GROUP
 
 ```bash
 # Single endpoint
-elasticache-monitor \
+elasticache-monitor-cli \
     -p YOUR_PASSWORD \
     -e redis.example.com:6379:shard-1
 
 # Multiple endpoints
-elasticache-monitor \
+elasticache-monitor-cli \
     -p YOUR_PASSWORD \
     -e host1.example.com:6379:shard-1 \
     -e host2.example.com:6379:shard-2
@@ -163,7 +163,7 @@ elasticache-monitor \
 ⚠️ **WARNING:** Not recommended for production!
 
 ```bash
-elasticache-monitor \
+elasticache-monitor-cli \
     -c my-cluster \
     -p YOUR_PASSWORD \
     --use-primary
@@ -176,7 +176,7 @@ elasticache-monitor \
 Enable with `--estimate-bandwidth` to sample actual key sizes:
 
 ```bash
-elasticache-monitor -c my-cluster -p PASS -d 120 --estimate-bandwidth
+elasticache-monitor-cli -c my-cluster -p PASS -d 120 --estimate-bandwidth
 ```
 
 This samples actual keys using `MEMORY USAGE` to calculate bandwidth estimates per shard and key pattern.

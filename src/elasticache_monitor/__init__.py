@@ -5,8 +5,8 @@ A comprehensive toolkit for debugging hot shard issues and analyzing
 uneven distribution in AWS ElastiCache clusters.
 """
 
-__version__ = "1.0.0"
-__author__ = "Kutumb Infrastructure Team"
+__version__ = "2.0.0"
+__author__ = "Kratik Jain"
 
 from .monitor import ShardMonitor
 from .endpoints import get_replica_endpoints

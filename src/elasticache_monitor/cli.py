@@ -507,38 +507,45 @@ def _run_monitoring(config):
 
 
 @click.command()
+@click.version_option(package_name='elasticache-monitor')
 @click.option('--host', '-h', default='0.0.0.0',
               help='Host to bind to (default: 0.0.0.0)')
-@click.option('--port', '-p', default=8080, type=int,
-              help='Port to listen on (default: 8080)')
+@click.option('--port', '-p', default=8099, type=int,
+              help='Port to listen on (default: 8099)')
 @click.option('--reload', is_flag=True,
               help='Enable auto-reload for development')
 def web_server(host, port, reload):
     """
-    🌐 Start the Web UI for Redis Monitor
+    🌐 ElastiCache Hot Shard Debugger
     
-    Launch a browser-based interface for monitoring and analyzing
-    Redis/ElastiCache clusters.
+    Debug hot shard issues in AWS ElastiCache (Redis/Valkey) clusters
+    with a beautiful web interface.
     
     Examples:
     
     \b
-    # Start on default port 8080
-    elasticache-web
+    # Start on default port (8099)
+    elasticache-monitor
     
     \b
-    # Start on custom port with auto-reload
-    elasticache-web -p 3000 --reload
+    # Start on custom port
+    elasticache-monitor -p 3000
+    
+    \b
+    # Development mode with auto-reload
+    elasticache-monitor --reload
+    
+    \b
+    For CLI monitoring (legacy):
+    elasticache-monitor-cli -c my-cluster -p PASSWORD -d 60
     """
     import uvicorn
     
     print(f"{Fore.GREEN}{'='*80}")
-    print(f"{Fore.GREEN}🌐 REDIS HOT SHARD DEBUGGER - WEB UI")
+    print(f"{Fore.GREEN}🌐 ELASTICACHE HOT SHARD DEBUGGER")
     print(f"{Fore.GREEN}{'='*80}\n")
     
     print(f"{Fore.CYAN}Starting web server...")
-    print(f"  Host: {host}")
-    print(f"  Port: {port}")
     print(f"  URL:  {Fore.GREEN}http://localhost:{port}")
     print()
     
