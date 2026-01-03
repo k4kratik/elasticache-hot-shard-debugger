@@ -18,7 +18,7 @@ from pathlib import Path
 from elasticache_monitor import __version__
 from .db import init_db, get_db, get_job_db_context, delete_job_db, job_db_exists, get_job_db_path
 from .models import MonitorJob, MonitorShard, RedisCommand, KeySizeCache, JobStatus, ShardStatus
-from .runner import run_monitoring_job, sample_key_sizes
+from .runner import run_monitoring_job, sample_key_sizes, cancel_job, is_job_running
 
 # Setup logging
 logging.basicConfig(
@@ -987,6 +987,24 @@ async def trigger_size_sampling(
     background_tasks.add_task(sample_key_sizes, job_id, password)
     
     return {"status": "sampling started"}
+
+
+@app.post("/api/jobs/{job_id}/cancel")
+async def cancel_job_endpoint(job_id: str, db: Session = Depends(get_db)):
+    """Cancel a running job."""
+    job = db.query(MonitorJob).filter(MonitorJob.id == job_id).first()
+    
+    if not job:
+        return JSONResponse({"error": "Job not found"}, status_code=404)
+    
+    if job.status != JobStatus.running:
+        return JSONResponse({"error": f"Job is not running (status: {job.status.value})"}, status_code=400)
+    
+    # Try to cancel the job
+    if cancel_job(job_id):
+        return {"status": "cancelling", "message": "Job cancellation requested"}
+    else:
+        return JSONResponse({"error": "Job not found in running jobs registry"}, status_code=404)
 
 
 @app.delete("/api/jobs/{job_id}")

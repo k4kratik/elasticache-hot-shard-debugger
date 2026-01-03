@@ -3,6 +3,7 @@
 {% block content %}
 <div class="space-y-8" x-data="{ 
     refreshing: false,
+    cancelling: false,
     jobStatus: '{{ job.status.value }}',
     shards: [],
     totalCommands: {{ job.total_commands }},
@@ -51,6 +52,26 @@
         }
         return secs + 's';
     },
+    async cancelJob() {
+        if (this.cancelling) return;
+        if (!confirm('Are you sure you want to cancel this job? Commands captured so far will be saved.')) return;
+        
+        this.cancelling = true;
+        try {
+            const response = await fetch('/api/jobs/{{ job.id }}/cancel', { method: 'POST' });
+            const data = await response.json();
+            if (response.ok) {
+                // Job will be cancelled, polling will detect completion
+            } else {
+                alert(data.error || 'Failed to cancel job');
+                this.cancelling = false;
+            }
+        } catch (e) {
+            console.error('Cancel failed:', e);
+            alert('Failed to cancel job');
+            this.cancelling = false;
+        }
+    },
     async pollStatus() {
         this.refreshing = true;
         try {
@@ -73,8 +94,8 @@
                 this.shards = data.shards;
             }
             
-            // Reload if job completed or failed
-            if (data.status === 'completed' || data.status === 'failed') {
+            // Reload if job completed, failed, cancelled, or timed out
+            if (data.status === 'completed' || data.status === 'failed' || data.status === 'cancelled' || data.status === 'timed_out') {
                 if (this.timerInterval) clearInterval(this.timerInterval);
                 window.location.reload();
             }
@@ -124,6 +145,16 @@
                     <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-redis-500/20 text-redis-400">
                         <span class="w-1.5 h-1.5 rounded-full bg-redis-400"></span>
                         Failed
+                    </span>
+                    {% elif job.status.value == 'cancelled' %}
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-orange-500/20 text-orange-400">
+                        <span class="w-1.5 h-1.5 rounded-full bg-orange-400"></span>
+                        Cancelled
+                    </span>
+                    {% elif job.status.value == 'timed_out' %}
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-yellow-500/20 text-yellow-400">
+                        <span class="w-1.5 h-1.5 rounded-full bg-yellow-400"></span>
+                        Timed Out
                     </span>
                     {% endif %}
                     <span x-show="refreshing" class="text-xs text-slate-500">
@@ -262,6 +293,23 @@
                     </div>
                 </template>
             </div>
+            <!-- Cancel button -->
+            <button @click="cancelJob()" 
+                    :disabled="cancelling"
+                    class="ml-4 px-4 py-2 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/30 transition-all text-sm font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                <template x-if="!cancelling">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </template>
+                <template x-if="cancelling">
+                    <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                </template>
+                <span x-text="cancelling ? 'Cancelling...' : 'Cancel'"></span>
+            </button>
         </div>
     </div>
 

@@ -112,6 +112,16 @@
                             <span class="w-1.5 h-1.5 rounded-full bg-redis-400"></span>
                             Failed
                         </span>
+                        {% elif item.job.status.value == 'cancelled' %}
+                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-orange-500/20 text-orange-400">
+                            <span class="w-1.5 h-1.5 rounded-full bg-orange-400"></span>
+                            Cancelled
+                        </span>
+                        {% elif item.job.status.value == 'timed_out' %}
+                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-yellow-500/20 text-yellow-400">
+                            <span class="w-1.5 h-1.5 rounded-full bg-yellow-400"></span>
+                            Timed Out
+                        </span>
                         {% endif %}
                         
                         <a href="/jobs/{{ item.job.id }}" class="text-lg font-semibold text-white hover:text-redis-400 transition-colors">

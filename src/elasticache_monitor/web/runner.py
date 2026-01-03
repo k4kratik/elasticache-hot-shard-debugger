@@ -5,7 +5,7 @@ import time
 import json
 import redis
 from datetime import datetime
-from threading import Thread, Event
+from threading import Thread, Event, Lock
 from typing import Optional, List, Dict, Any
 from collections import Counter
 
@@ -18,6 +18,67 @@ from ..endpoints import get_replica_endpoints, get_all_endpoints
 from ..utils import extract_key_pattern
 
 logger = logging.getLogger("elasticache-monitor-web")
+
+# Global registry to track running jobs for cancellation
+_running_jobs: Dict[str, List['WebShardMonitor']] = {}
+_running_jobs_lock = Lock()
+
+
+def register_running_job(job_id: str, monitors: List['WebShardMonitor']):
+    """Register a job's monitors for potential cancellation."""
+    with _running_jobs_lock:
+        _running_jobs[job_id] = monitors
+
+
+def unregister_running_job(job_id: str):
+    """Unregister a completed/cancelled job."""
+    with _running_jobs_lock:
+        _running_jobs.pop(job_id, None)
+
+
+def cancel_job(job_id: str) -> bool:
+    """Cancel a running job by setting stop_event on all its monitors."""
+    with _running_jobs_lock:
+        monitors = _running_jobs.get(job_id)
+        if not monitors:
+            return False
+        
+        logger.info(f"Cancelling job {job_id} with {len(monitors)} monitors")
+        for monitor in monitors:
+            monitor.stop_event.set()
+        return True
+
+
+def is_job_running(job_id: str) -> bool:
+    """Check if a job is currently running."""
+    with _running_jobs_lock:
+        return job_id in _running_jobs
+
+
+# Maximum job duration (15 minutes)
+MAX_JOB_DURATION_SECONDS = 15 * 60
+
+# Track if job was timed out
+_timed_out_jobs: set = set()
+_timed_out_lock = Lock()
+
+
+def mark_job_timed_out(job_id: str):
+    """Mark a job as timed out."""
+    with _timed_out_lock:
+        _timed_out_jobs.add(job_id)
+
+
+def was_job_timed_out(job_id: str) -> bool:
+    """Check if a job was timed out."""
+    with _timed_out_lock:
+        return job_id in _timed_out_jobs
+
+
+def clear_job_timeout(job_id: str):
+    """Clear timeout flag for a job."""
+    with _timed_out_lock:
+        _timed_out_jobs.discard(job_id)
 
 
 class WebShardMonitor:
@@ -427,6 +488,21 @@ def run_monitoring_job(job_id: str, password: str, profile: str = None):
         thread.start()
         threads.append(thread)
     
+    # Register job for potential cancellation
+    register_running_job(job_id, monitors)
+    
+    # Start timeout watchdog thread
+    def timeout_watchdog():
+        """Cancel job if it runs longer than MAX_JOB_DURATION_SECONDS."""
+        time.sleep(MAX_JOB_DURATION_SECONDS)
+        if is_job_running(job_id):
+            logger.warning(f"Job {job_id} exceeded maximum duration ({MAX_JOB_DURATION_SECONDS}s), timing out...")
+            mark_job_timed_out(job_id)
+            cancel_job(job_id)
+    
+    watchdog_thread = Thread(target=timeout_watchdog, daemon=True)
+    watchdog_thread.start()
+    
     # Wait for all threads to complete
     logger.info(f"Waiting for {len(threads)} monitoring threads to complete (duration: {duration}s)...")
     timeout_per_thread = duration + 60
@@ -435,14 +511,22 @@ def run_monitoring_job(job_id: str, password: str, profile: str = None):
         if thread.is_alive():
             logger.warning(f"Thread {i} still running after {timeout_per_thread}s timeout")
     
+    # Unregister job
+    unregister_running_job(job_id)
+    
     # Update job status
     total_commands = sum(m.command_count for m in monitors)
     has_errors = any(m.error for m in monitors)
+    was_cancelled = any(m.stop_event.is_set() for m in monitors)
+    was_timed_out = was_job_timed_out(job_id)
+    
+    # Clear timeout flag
+    clear_job_timeout(job_id)
     
     logger.info(f"All monitoring threads completed. Summary:")
     for m in monitors:
-        logger.info(f"  - {m.shard_name}: {m.command_count} commands, error={m.error}")
-    logger.info(f"Total commands: {total_commands}, has_errors: {has_errors}")
+        logger.info(f"  - {m.shard_name}: {m.command_count} commands, error={m.error}, cancelled={m.stop_event.is_set()}")
+    logger.info(f"Total commands: {total_commands}, has_errors: {has_errors}, cancelled: {was_cancelled}, timed_out: {was_timed_out}")
     
     # Note: Key size sampling disabled to avoid additional Redis queries
     # Key sizes can be sampled manually via the API if needed
@@ -456,11 +540,21 @@ def run_monitoring_job(job_id: str, password: str, profile: str = None):
     with get_db_context() as db:
         job = db.query(MonitorJob).filter(MonitorJob.id == job_id).first()
         if job:
-            job.status = JobStatus.completed if not has_errors else JobStatus.completed
+            if was_timed_out:
+                job.status = JobStatus.timed_out
+            elif was_cancelled:
+                job.status = JobStatus.cancelled
+            else:
+                job.status = JobStatus.completed
             job.completed_at = datetime.utcnow()
             job.total_commands = total_commands
     
-    logger.info(f"Job {job_id} completed with {total_commands} total commands")
+    if was_timed_out:
+        logger.warning(f"Job {job_id} timed out after {MAX_JOB_DURATION_SECONDS}s with {total_commands} commands captured")
+    elif was_cancelled:
+        logger.info(f"Job {job_id} cancelled with {total_commands} commands captured")
+    else:
+        logger.info(f"Job {job_id} completed with {total_commands} total commands")
 
 
 def sample_key_sizes(job_id: str, password: str, sample_limit: int = 50):

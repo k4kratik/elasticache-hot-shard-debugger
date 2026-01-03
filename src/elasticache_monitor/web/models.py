@@ -26,6 +26,7 @@ class JobStatus(enum.Enum):
     completed = "completed"
     failed = "failed"
     cancelled = "cancelled"
+    timed_out = "timed_out"
 
 
 class ShardStatus(enum.Enum):
