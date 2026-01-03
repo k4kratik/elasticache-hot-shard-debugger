@@ -1303,9 +1303,13 @@ async def job_timeline(
 @app.get("/api/jobs/{job_id}/timeline-data")
 async def get_timeline_data(
     job_id: str,
-    group_by: str = "command_signature",  # command_signature, command, client_ip, key_pattern
+    group_by: str = "command_signature",  # command_signature, command, client_ip, key_pattern, shard_name
     shards: Optional[str] = None,  # comma-separated shard names
-    filter_value: Optional[str] = None,  # specific signature/command/pattern to filter
+    filter_value: Optional[str] = None,  # legacy: specific value to filter (applies to group_by column)
+    filter_command: Optional[str] = None,  # filter by command
+    filter_client_ip: Optional[str] = None,  # filter by client IP
+    filter_key_pattern: Optional[str] = None,  # filter by key pattern
+    filter_command_signature: Optional[str] = None,  # filter by command signature
     granularity: int = 1,  # seconds per bucket
     db: Session = Depends(get_db)
 ):
@@ -1326,7 +1330,8 @@ async def get_timeline_data(
             "command_signature": "command_signature",
             "command": "command",
             "client_ip": "client_ip", 
-            "key_pattern": "key_pattern"
+            "key_pattern": "key_pattern",
+            "shard_name": "shard_name"
         }.get(group_by, "command_signature")
         
         # Build WHERE clause
@@ -1339,6 +1344,24 @@ async def get_timeline_data(
             for i, s in enumerate(shard_list):
                 params[f"shard_{i}"] = s
         
+        # Individual column filters
+        if filter_command:
+            where_clauses.append("command = :filter_command")
+            params["filter_command"] = filter_command
+        
+        if filter_client_ip:
+            where_clauses.append("client_ip LIKE :filter_client_ip")
+            params["filter_client_ip"] = f"%{filter_client_ip}%"
+        
+        if filter_key_pattern:
+            where_clauses.append("key_pattern = :filter_key_pattern")
+            params["filter_key_pattern"] = filter_key_pattern
+        
+        if filter_command_signature:
+            where_clauses.append("command_signature = :filter_command_signature")
+            params["filter_command_signature"] = filter_command_signature
+        
+        # Legacy filter_value (applies to the group_by column)
         if filter_value:
             where_clauses.append(f"{group_column} = :filter_value")
             params["filter_value"] = filter_value
@@ -1393,70 +1416,60 @@ async def get_timeline_data(
             labels.append(dt.strftime("%H:%M:%S"))
         
         # Build datasets for Chart.js
-        # If multiple shards, create dataset per shard+group combo
-        # If single shard or filtering, create dataset per group
+        # Always group by the selected dimension (group_by parameter)
         datasets = []
         
-        # Color palette for shards
-        shard_colors = [
-            "rgba(168, 85, 247, 0.8)",   # purple
-            "rgba(16, 185, 129, 0.8)",   # emerald
-            "rgba(245, 158, 11, 0.8)",   # amber
-            "rgba(6, 182, 212, 0.8)",    # cyan
-            "rgba(239, 68, 68, 0.8)",    # red
-            "rgba(59, 130, 246, 0.8)",   # blue
-            "rgba(236, 72, 153, 0.8)",   # pink
-            "rgba(132, 204, 22, 0.8)",   # lime
+        # Color palette - vibrant, distinct colors
+        colors = [
+            "rgba(99, 102, 241, 0.7)",   # indigo
+            "rgba(16, 185, 129, 0.7)",   # emerald
+            "rgba(249, 115, 22, 0.7)",   # orange
+            "rgba(14, 165, 233, 0.7)",   # sky
+            "rgba(244, 63, 94, 0.7)",    # rose
+            "rgba(168, 85, 247, 0.7)",   # purple
+            "rgba(234, 179, 8, 0.7)",    # yellow
+            "rgba(20, 184, 166, 0.7)",   # teal
+            "rgba(239, 68, 68, 0.7)",    # red
+            "rgba(59, 130, 246, 0.7)",   # blue
+            "rgba(236, 72, 153, 0.7)",   # pink
+            "rgba(132, 204, 22, 0.7)",   # lime
         ]
         
-        # Group colors (for when showing single shard)
-        group_colors = [
-            "rgba(99, 102, 241, 0.8)",   # indigo
-            "rgba(34, 197, 94, 0.8)",    # green
-            "rgba(249, 115, 22, 0.8)",   # orange
-            "rgba(14, 165, 233, 0.8)",   # sky
-            "rgba(244, 63, 94, 0.8)",    # rose
-            "rgba(168, 85, 247, 0.8)",   # purple
-            "rgba(234, 179, 8, 0.8)",    # yellow
-            "rgba(20, 184, 166, 0.8)",   # teal
-        ]
-        
-        if len(all_shards) > 1 and not filter_value:
-            # Multiple shards - show by shard with total counts
-            for idx, shard in enumerate(all_shards):
-                data = []
-                for ts in sorted_times:
+        # Calculate totals per group to sort by most active
+        group_totals = {}
+        for group in all_groups:
+            total = 0
+            for ts in sorted_times:
+                for shard in all_shards:
                     shard_data = time_data[ts].get(shard, {})
-                    total = sum(shard_data.values())
-                    data.append(total)
-                
-                datasets.append({
-                    "label": shard,
-                    "data": data,
-                    "backgroundColor": shard_colors[idx % len(shard_colors)],
-                    "borderColor": shard_colors[idx % len(shard_colors)].replace("0.8", "1"),
-                    "borderWidth": 1
-                })
-        else:
-            # Single shard or filtered - show by group value
-            top_groups = list(all_groups)[:10]  # Limit to top 10 groups
+                    total += shard_data.get(group, 0)
+            group_totals[group] = total
+        
+        # Sort groups by total count (descending) and take top 12
+        sorted_groups = sorted(all_groups, key=lambda g: group_totals.get(g, 0), reverse=True)
+        top_groups = sorted_groups[:12]
+        
+        # Create dataset for each group value
+        for idx, group in enumerate(top_groups):
+            data = []
+            for ts in sorted_times:
+                total = 0
+                for shard in all_shards:
+                    shard_data = time_data[ts].get(shard, {})
+                    total += shard_data.get(group, 0)
+                data.append(total)
             
-            for idx, group in enumerate(top_groups):
-                data = []
-                for ts in sorted_times:
-                    total = 0
-                    for shard in all_shards:
-                        shard_data = time_data[ts].get(shard, {})
-                        total += shard_data.get(group, 0)
-                    data.append(total)
-                
-                datasets.append({
-                    "label": group[:30] + "..." if len(group) > 30 else group,
-                    "data": data,
-                    "backgroundColor": group_colors[idx % len(group_colors)],
-                    "borderColor": group_colors[idx % len(group_colors)].replace("0.8", "1"),
-                    "borderWidth": 1
-                })
+            # Truncate long labels for display
+            display_label = group[:35] + "..." if len(group) > 35 else group
+            
+            datasets.append({
+                "label": display_label,
+                "fullLabel": group,  # Keep full label for tooltips
+                "data": data,
+                "backgroundColor": colors[idx % len(colors)],
+                "borderColor": colors[idx % len(colors)].replace("0.7", "1"),
+                "borderWidth": 1
+            })
         
         # Get summary stats
         total_commands = sum(
@@ -1474,5 +1487,272 @@ async def get_timeline_data(
                 "shards": list(all_shards),
                 "groups": list(all_groups)[:20]
             }
+        })
+
+
+@app.get("/jobs/{job_id}/shard-distribution", response_class=HTMLResponse)
+async def job_shard_distribution(
+    request: Request,
+    job_id: str,
+    db: Session = Depends(get_db)
+):
+    """Shard distribution view - visualize commands by shard."""
+    job = db.query(MonitorJob).filter(MonitorJob.id == job_id).first()
+    if not job:
+        return RedirectResponse(url="/jobs", status_code=302)
+    
+    # Get shards for this job
+    shards = db.query(MonitorShard).filter(MonitorShard.job_id == job_id).all()
+    shard_names = sorted([s.shard_name for s in shards])
+    
+    # Get unique commands, patterns, and signatures from the job database
+    commands = []
+    patterns = []
+    signatures = []
+    
+    if job_db_exists(job_id):
+        with get_job_db_context(job_id) as job_db:
+            # Get unique commands
+            cmd_result = job_db.execute(text(
+                "SELECT DISTINCT command FROM redis_commands ORDER BY command"
+            ))
+            commands = [row[0] for row in cmd_result.fetchall()]
+            
+            # Get top patterns
+            pattern_result = job_db.execute(text(
+                """SELECT key_pattern, COUNT(*) as cnt 
+                   FROM redis_commands 
+                   WHERE key_pattern IS NOT NULL 
+                   GROUP BY key_pattern 
+                   ORDER BY cnt DESC 
+                   LIMIT 50"""
+            ))
+            patterns = [row[0] for row in pattern_result.fetchall()]
+            
+            # Get top signatures
+            sig_result = job_db.execute(text(
+                """SELECT command_signature, COUNT(*) as cnt 
+                   FROM redis_commands 
+                   WHERE command_signature IS NOT NULL 
+                   GROUP BY command_signature 
+                   ORDER BY cnt DESC 
+                   LIMIT 50"""
+            ))
+            signatures = [row[0] for row in sig_result.fetchall()]
+    
+    return templates.TemplateResponse("shard_distribution.html", {
+        "request": request,
+        "job": job,
+        "shards": shard_names,
+        "commands": commands,
+        "patterns": patterns,
+        "signatures": signatures,
+        "page_title": f"Shard Distribution - {job.name or job.replication_group_id}"
+    })
+
+
+@app.get("/api/jobs/{job_id}/shard-distribution-data")
+async def get_shard_distribution_data(
+    job_id: str,
+    group_by: str = "command_signature",  # command_signature, command, client_ip, key_pattern
+    filter_command: Optional[str] = None,
+    filter_client_ip: Optional[str] = None,
+    filter_key_pattern: Optional[str] = None,
+    filter_command_signature: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """Get shard distribution data - commands grouped by shard, stacked by group_by dimension."""
+    job = db.query(MonitorJob).filter(MonitorJob.id == job_id).first()
+    if not job:
+        return JSONResponse({"error": "Job not found"}, status_code=404)
+    
+    if not job_db_exists(job_id):
+        return JSONResponse({"error": "No data for this job"}, status_code=404)
+    
+    with get_job_db_context(job_id) as job_db:
+        # Build the query based on group_by
+        group_column = {
+            "command_signature": "command_signature",
+            "command": "command",
+            "client_ip": "client_ip", 
+            "key_pattern": "key_pattern"
+        }.get(group_by, "command_signature")
+        
+        # Build WHERE clause
+        where_clauses = ["1=1"]
+        params = {}
+        
+        if filter_command:
+            where_clauses.append("command = :filter_command")
+            params["filter_command"] = filter_command
+        
+        if filter_client_ip:
+            where_clauses.append("client_ip LIKE :filter_client_ip")
+            params["filter_client_ip"] = f"%{filter_client_ip}%"
+        
+        if filter_key_pattern:
+            where_clauses.append("key_pattern = :filter_key_pattern")
+            params["filter_key_pattern"] = filter_key_pattern
+        
+        if filter_command_signature:
+            where_clauses.append("command_signature = :filter_command_signature")
+            params["filter_command_signature"] = filter_command_signature
+        
+        where_sql = " AND ".join(where_clauses)
+        
+        # Query: group by shard and the selected dimension
+        query = f"""
+            SELECT shard_name, {group_column}, COUNT(*) as count
+            FROM redis_commands
+            WHERE {where_sql}
+            GROUP BY shard_name, {group_column}
+            ORDER BY shard_name, count DESC
+        """
+        
+        result = job_db.execute(text(query), params)
+        rows = result.fetchall()
+        
+        # Process into shard-based structure
+        shard_data = {}
+        total_commands = 0
+        
+        for row in rows:
+            shard_name, group_value, count = row
+            if shard_name not in shard_data:
+                shard_data[shard_name] = {"breakdown": {}}
+            
+            group_key = group_value or "(none)"
+            shard_data[shard_name]["breakdown"][group_key] = count
+            total_commands += count
+        
+        # Convert to list format
+        shards = []
+        for shard_name in sorted(shard_data.keys()):
+            shards.append({
+                "name": shard_name,
+                "breakdown": shard_data[shard_name]["breakdown"]
+            })
+        
+        return JSONResponse({
+            "shards": shards,
+            "total_commands": total_commands,
+            "group_by": group_by
+        })
+
+
+@app.get("/api/jobs/{job_id}/filter-options")
+async def get_filter_options(
+    job_id: str,
+    filter_command: Optional[str] = None,
+    filter_client_ip: Optional[str] = None,
+    filter_key_pattern: Optional[str] = None,
+    filter_command_signature: Optional[str] = None,
+    filter_shard: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """Get available filter options based on current filter criteria.
+    
+    Returns only options that would produce results given the current filters.
+    """
+    job = db.query(MonitorJob).filter(MonitorJob.id == job_id).first()
+    if not job:
+        return JSONResponse({"error": "Job not found"}, status_code=404)
+    
+    if not job_db_exists(job_id):
+        return JSONResponse({"error": "No data for this job"}, status_code=404)
+    
+    with get_job_db_context(job_id) as job_db:
+        # Build base WHERE clause from current filters
+        where_clauses = ["1=1"]
+        params = {}
+        
+        if filter_command:
+            where_clauses.append("command = :filter_command")
+            params["filter_command"] = filter_command
+        
+        if filter_client_ip:
+            where_clauses.append("client_ip LIKE :filter_client_ip")
+            params["filter_client_ip"] = f"%{filter_client_ip}%"
+        
+        if filter_key_pattern:
+            where_clauses.append("key_pattern = :filter_key_pattern")
+            params["filter_key_pattern"] = filter_key_pattern
+        
+        if filter_command_signature:
+            where_clauses.append("command_signature = :filter_command_signature")
+            params["filter_command_signature"] = filter_command_signature
+        
+        if filter_shard:
+            # Handle comma-separated shard list
+            shard_list = [s.strip() for s in filter_shard.split(",") if s.strip()]
+            if shard_list:
+                placeholders = ", ".join([f":shard_{i}" for i in range(len(shard_list))])
+                where_clauses.append(f"shard_name IN ({placeholders})")
+                for i, s in enumerate(shard_list):
+                    params[f"shard_{i}"] = s
+        
+        where_sql = " AND ".join(where_clauses)
+        
+        # Get available commands (excluding current command filter for this query)
+        cmd_where = [c for c in where_clauses if "filter_command" not in c]
+        cmd_params = {k: v for k, v in params.items() if "filter_command" not in k}
+        cmd_query = f"""
+            SELECT DISTINCT command, COUNT(*) as cnt
+            FROM redis_commands 
+            WHERE {' AND '.join(cmd_where) if cmd_where else '1=1'}
+            GROUP BY command
+            ORDER BY cnt DESC
+            LIMIT 50
+        """
+        commands = [row[0] for row in job_db.execute(text(cmd_query), cmd_params).fetchall()]
+        
+        # Get available key patterns (excluding current key_pattern filter)
+        pattern_where = [c for c in where_clauses if "filter_key_pattern" not in c]
+        pattern_params = {k: v for k, v in params.items() if "filter_key_pattern" not in k}
+        pattern_query = f"""
+            SELECT DISTINCT key_pattern, COUNT(*) as cnt
+            FROM redis_commands 
+            WHERE {' AND '.join(pattern_where) if pattern_where else '1=1'} AND key_pattern IS NOT NULL
+            GROUP BY key_pattern
+            ORDER BY cnt DESC
+            LIMIT 50
+        """
+        patterns = [row[0] for row in job_db.execute(text(pattern_query), pattern_params).fetchall()]
+        
+        # Get available signatures (excluding current signature filter)
+        sig_where = [c for c in where_clauses if "filter_command_signature" not in c]
+        sig_params = {k: v for k, v in params.items() if "filter_command_signature" not in k}
+        sig_query = f"""
+            SELECT DISTINCT command_signature, COUNT(*) as cnt
+            FROM redis_commands 
+            WHERE {' AND '.join(sig_where) if sig_where else '1=1'} AND command_signature IS NOT NULL
+            GROUP BY command_signature
+            ORDER BY cnt DESC
+            LIMIT 50
+        """
+        signatures = [row[0] for row in job_db.execute(text(sig_query), sig_params).fetchall()]
+        
+        # Get available shards (excluding current shard filter)
+        shard_where = [c for c in where_clauses if "shard_" not in c]
+        shard_params = {k: v for k, v in params.items() if "shard_" not in k}
+        shard_query = f"""
+            SELECT DISTINCT shard_name, COUNT(*) as cnt
+            FROM redis_commands 
+            WHERE {' AND '.join(shard_where) if shard_where else '1=1'}
+            GROUP BY shard_name
+            ORDER BY shard_name
+        """
+        shards = [row[0] for row in job_db.execute(text(shard_query), shard_params).fetchall()]
+        
+        # Get matching count with all current filters
+        count_query = f"SELECT COUNT(*) FROM redis_commands WHERE {where_sql}"
+        matching_count = job_db.execute(text(count_query), params).scalar()
+        
+        return JSONResponse({
+            "commands": commands,
+            "patterns": patterns,
+            "signatures": signatures,
+            "shards": shards,
+            "matching_count": matching_count
         })
 

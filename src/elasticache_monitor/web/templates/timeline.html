@@ -1,317 +1,566 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="min-h-screen bg-slate-950 text-white" x-data="timelineApp()">
+<div class="min-h-screen" x-data="timelineApp()">
+    <!-- Breadcrumb -->
+    <nav class="flex items-center gap-2 text-sm mb-6">
+        <a href="/jobs" class="text-slate-400 hover:text-white transition-colors">Jobs</a>
+        <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+        </svg>
+        <a href="/jobs/{{ job.id }}" class="text-slate-400 hover:text-white transition-colors">
+            {{ job.name or job.id[:8] }}
+        </a>
+        <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+        </svg>
+        <span class="text-white">Timeline</span>
+    </nav>
+
     <!-- Header -->
-    <div class="border-b border-slate-800 bg-slate-900/50 backdrop-blur-sm sticky top-0 z-10">
-        <div class="max-w-7xl mx-auto px-6 py-4">
-            <div class="flex items-center justify-between">
-                <div class="flex items-center gap-4">
-                    <a href="/jobs/{{ job.id }}" class="text-slate-400 hover:text-white transition-colors">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
-                        </svg>
-                    </a>
-                    <div>
-                        <h1 class="text-xl font-semibold">Timeline Analysis</h1>
-                        <p class="text-sm text-slate-400">{{ job.name or job.replication_group_id }}</p>
-                    </div>
-                </div>
-                <div class="flex items-center gap-3">
-                    <a href="/jobs/{{ job.id }}" class="px-3 py-1.5 text-sm bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors">
-                        Overview
-                    </a>
-                    <a href="/jobs/{{ job.id }}/analysis" class="px-3 py-1.5 text-sm bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors">
-                        Analysis
-                    </a>
-                    <span class="px-3 py-1.5 text-sm bg-purple-600 rounded-lg">
-                        Timeline
-                    </span>
-                </div>
-            </div>
+    <div class="flex items-center justify-between mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-white flex items-center gap-3">
+                <svg class="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
+                Timeline Analysis
+            </h1>
+            <p class="text-slate-400 text-sm mt-1">{{ job.name or job.replication_group_id }} — <span x-text="formatNumber(summary?.total_commands || 0)"></span> commands</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+            <a href="/jobs/{{ job.id }}" class="px-3 py-1.5 text-sm bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors text-slate-300 flex items-center gap-1.5">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
+                Overview
+            </a>
+            <span class="px-3 py-1.5 text-sm bg-purple-600 rounded-lg text-white flex items-center gap-1.5">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
+                Timeline
+            </span>
+            <a href="/jobs/{{ job.id }}/shard-distribution" class="px-3 py-1.5 text-sm bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors text-slate-300 flex items-center gap-1.5">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2 1 3 3 3h10c2 0 3-1 3-3V7c0-2-1-3-3-3H7C5 4 4 5 4 7zm0 5h16" /></svg>
+                Shards
+            </a>
+            <a href="/jobs/{{ job.id }}/analysis" class="px-3 py-1.5 text-sm bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors text-slate-300 flex items-center gap-1.5">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+                Analyze
+            </a>
+            <a href="/query?job_id={{ job.id }}" class="px-3 py-1.5 text-sm bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors text-slate-300 flex items-center gap-1.5">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                SQL
+            </a>
         </div>
     </div>
 
-    <!-- Controls -->
-    <div class="max-w-7xl mx-auto px-6 py-6">
-        <div class="bg-slate-900 rounded-xl border border-slate-800 p-6 mb-6">
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <!-- Group By -->
-                <div>
-                    <label class="block text-sm font-medium text-slate-300 mb-2">Group By</label>
-                    <select x-model="groupBy" @change="fetchData()" 
-                            class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent">
-                        <option value="command_signature">Command Signature</option>
-                        <option value="command">Command Type</option>
-                        <option value="client_ip">Client IP</option>
-                        <option value="key_pattern">Key Pattern</option>
-                    </select>
+    <div class="flex flex-col lg:flex-row gap-6">
+        <!-- Main Content -->
+        <div class="flex-1 min-w-0 order-2 lg:order-1">
+            <!-- Summary Stats -->
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <div class="glass-card rounded-xl p-4">
+                    <div class="text-2xl font-bold text-white" x-text="formatNumber(summary?.total_commands || 0)"></div>
+                    <div class="text-xs text-slate-500 uppercase tracking-wide">Total Commands</div>
                 </div>
-
-                <!-- Time Granularity -->
-                <div>
-                    <label class="block text-sm font-medium text-slate-300 mb-2">Time Granularity</label>
-                    <select x-model="granularity" @change="fetchData()"
-                            class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent">
-                        <option value="1">1 second</option>
-                        <option value="5">5 seconds</option>
-                        <option value="10">10 seconds</option>
-                        <option value="30">30 seconds</option>
-                        <option value="60">1 minute</option>
-                    </select>
+                <div class="glass-card rounded-xl p-4">
+                    <div class="text-2xl font-bold text-emerald-400" x-text="summary?.time_range?.split(' - ')[0] || '—'"></div>
+                    <div class="text-xs text-slate-500 uppercase tracking-wide">Start Time</div>
                 </div>
+                <div class="glass-card rounded-xl p-4">
+                    <div class="text-2xl font-bold text-purple-400" x-text="chartData?.labels?.length || 0"></div>
+                    <div class="text-xs text-slate-500 uppercase tracking-wide">Time Buckets</div>
+                </div>
+                <div class="glass-card rounded-xl p-4">
+                    <div class="text-2xl font-bold text-amber-400" x-text="chartData?.datasets?.length || 0"></div>
+                    <div class="text-xs text-slate-500 uppercase tracking-wide" x-text="groupByLabel + 's'"></div>
+                </div>
+            </div>
 
-                <!-- Shard Selection -->
-                <div>
-                    <label class="block text-sm font-medium text-slate-300 mb-2">Shards</label>
-                    <div class="relative" x-data="{ open: false }">
-                        <button @click="open = !open" type="button"
-                                class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-left text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent flex items-center justify-between">
-                            <span x-text="selectedShards.length === 0 ? 'All Shards' : selectedShards.length + ' selected'"></span>
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-                            </svg>
-                        </button>
-                        <div x-show="open" @click.away="open = false" x-transition
-                             class="absolute z-20 mt-1 w-full bg-slate-800 border border-slate-700 rounded-lg shadow-xl max-h-48 overflow-y-auto">
-                            <label class="flex items-center px-3 py-2 hover:bg-slate-700 cursor-pointer border-b border-slate-700">
-                                <input type="checkbox" 
-                                       :checked="selectedShards.length === 0"
-                                       @change="selectedShards = []; fetchData()"
-                                       class="rounded bg-slate-700 border-slate-600 text-purple-500 focus:ring-purple-500">
-                                <span class="ml-2 text-sm">All Shards</span>
-                            </label>
-                            {% for shard in shards %}
-                            <label class="flex items-center px-3 py-2 hover:bg-slate-700 cursor-pointer">
-                                <input type="checkbox" value="{{ shard }}"
-                                       x-model="selectedShards"
-                                       @change="fetchData()"
-                                       class="rounded bg-slate-700 border-slate-600 text-purple-500 focus:ring-purple-500">
-                                <span class="ml-2 text-sm">{{ shard }}</span>
-                            </label>
-                            {% endfor %}
+            <!-- Chart -->
+            <div class="glass-card rounded-xl p-6 mb-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold text-white">Command Traffic Over Time</h3>
+                    <div class="flex items-center gap-2">
+                        <div class="flex rounded-lg bg-slate-800/50 p-0.5">
+                            <button @click="chartType = 'bar'; renderChart()" 
+                                    :class="chartType === 'bar' ? 'bg-purple-600 text-white' : 'text-slate-400 hover:text-white'"
+                                    class="px-3 py-1.5 text-xs font-medium rounded-md transition-all">
+                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/></svg>
+                            </button>
+                            <button @click="chartType = 'line'; renderChart()" 
+                                    :class="chartType === 'line' ? 'bg-purple-600 text-white' : 'text-slate-400 hover:text-white'"
+                                    class="px-3 py-1.5 text-xs font-medium rounded-md transition-all">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/></svg>
+                            </button>
+                            <button @click="chartType = 'area'; renderChart()" 
+                                    :class="chartType === 'area' ? 'bg-purple-600 text-white' : 'text-slate-400 hover:text-white'"
+                                    class="px-3 py-1.5 text-xs font-medium rounded-md transition-all">
+                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M3 3a1 1 0 000 2v8a2 2 0 002 2h2.586l-1.293 1.293a1 1 0 101.414 1.414L10 15.414l2.293 2.293a1 1 0 001.414-1.414L12.414 15H15a2 2 0 002-2V5a1 1 0 100-2H3zm11.707 4.707a1 1 0 00-1.414-1.414L10 9.586 8.707 8.293a1 1 0 00-1.414 0l-2 2a1 1 0 101.414 1.414L8 10.414l1.293 1.293a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                            </button>
                         </div>
                     </div>
                 </div>
 
-                <!-- Filter -->
-                <div>
-                    <label class="block text-sm font-medium text-slate-300 mb-2">
-                        Filter <span class="text-slate-500" x-text="'(' + groupBy + ')'"></span>
-                    </label>
-                    <div class="relative">
-                        <input type="text" x-model="filterValue" 
-                               @input.debounce.500ms="fetchData()"
-                               placeholder="Type to filter..."
-                               list="filter-suggestions"
-                               class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white placeholder-slate-500 focus:ring-2 focus:ring-purple-500 focus:border-transparent">
-                        <datalist id="filter-suggestions">
-                            {% for sig in signatures %}
-                            <option value="{{ sig }}">
-                            {% endfor %}
-                            {% for cmd in commands %}
-                            <option value="{{ cmd }}">
-                            {% endfor %}
-                            {% for pattern in patterns %}
-                            <option value="{{ pattern }}">
-                            {% endfor %}
-                        </datalist>
-                        <button x-show="filterValue" @click="filterValue = ''; fetchData()" 
-                                class="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                            </svg>
-                        </button>
+                <!-- Loading -->
+                <div x-show="loading" class="h-[350px] flex items-center justify-center">
+                    <div class="flex items-center gap-3 text-slate-400">
+                        <svg class="animate-spin h-6 w-6" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span>Loading timeline data...</span>
                     </div>
                 </div>
-            </div>
 
-            <!-- Quick Filters -->
-            <div class="mt-4 pt-4 border-t border-slate-800">
-                <div class="flex flex-wrap gap-2">
-                    <span class="text-sm text-slate-400 mr-2">Quick filters:</span>
-                    {% for cmd in commands[:8] %}
-                    <button @click="groupBy = 'command'; filterValue = '{{ cmd }}'; fetchData()"
-                            class="px-2 py-1 text-xs bg-slate-800 hover:bg-slate-700 rounded border border-slate-700 transition-colors">
-                        {{ cmd }}
-                    </button>
-                    {% endfor %}
-                </div>
-            </div>
-        </div>
-
-        <!-- Summary Stats -->
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6" x-show="summary">
-            <div class="bg-slate-900 rounded-xl border border-slate-800 p-4">
-                <div class="text-2xl font-bold text-purple-400" x-text="formatNumber(summary?.total_commands || 0)"></div>
-                <div class="text-sm text-slate-400">Total Commands</div>
-            </div>
-            <div class="bg-slate-900 rounded-xl border border-slate-800 p-4">
-                <div class="text-2xl font-bold text-emerald-400" x-text="summary?.time_range || 'N/A'"></div>
-                <div class="text-sm text-slate-400">Time Range</div>
-            </div>
-            <div class="bg-slate-900 rounded-xl border border-slate-800 p-4">
-                <div class="text-2xl font-bold text-amber-400" x-text="summary?.shards?.length || 0"></div>
-                <div class="text-sm text-slate-400">Active Shards</div>
-            </div>
-            <div class="bg-slate-900 rounded-xl border border-slate-800 p-4">
-                <div class="text-2xl font-bold text-cyan-400" x-text="summary?.groups?.length || 0"></div>
-                <div class="text-sm text-slate-400" x-text="groupBy === 'command' ? 'Unique Commands' : groupBy === 'client_ip' ? 'Unique Clients' : 'Unique Patterns'"></div>
-            </div>
-        </div>
-
-        <!-- Chart -->
-        <div class="bg-slate-900 rounded-xl border border-slate-800 p-6">
-            <!-- Loading State -->
-            <div x-show="loading" class="flex items-center justify-center h-96">
-                <div class="text-center">
-                    <svg class="animate-spin h-10 w-10 text-purple-500 mx-auto mb-4" fill="none" viewBox="0 0 24 24">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    <p class="text-slate-400">Loading timeline data...</p>
-                </div>
-            </div>
-
-            <!-- Error State -->
-            <div x-show="error && !loading" class="flex items-center justify-center h-96">
-                <div class="text-center">
-                    <svg class="w-12 h-12 text-red-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-                    </svg>
-                    <p class="text-red-400" x-text="error"></p>
-                </div>
-            </div>
-
-            <!-- Chart Canvas -->
-            <div x-show="!loading && !error">
-                <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-lg font-semibold">Commands Over Time</h3>
-                    <div class="flex items-center gap-2">
-                        <button @click="chartType = 'bar'; updateChartType()" 
-                                :class="chartType === 'bar' ? 'bg-purple-600' : 'bg-slate-800 hover:bg-slate-700'"
-                                class="px-3 py-1.5 text-sm rounded-lg transition-colors">
-                            Bar
-                        </button>
-                        <button @click="chartType = 'line'; updateChartType()" 
-                                :class="chartType === 'line' ? 'bg-purple-600' : 'bg-slate-800 hover:bg-slate-700'"
-                                class="px-3 py-1.5 text-sm rounded-lg transition-colors">
-                            Line
-                        </button>
+                <!-- Error -->
+                <div x-show="error && !loading" class="h-[350px] flex items-center justify-center">
+                    <div class="text-center">
+                        <svg class="w-12 h-12 text-red-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                        </svg>
+                        <p class="text-red-400" x-text="error"></p>
                     </div>
                 </div>
-                <div class="h-96">
+
+                <!-- Chart -->
+                <div x-show="!loading && !error" class="h-[350px]">
                     <canvas id="timelineChart"></canvas>
                 </div>
-                <div class="mt-4 text-xs text-slate-500 text-center">
-                    💡 Click legend items to show/hide • Right-click to isolate • Click bars to explain spike
+
+                <div x-show="!loading && !error" class="mt-3 text-xs text-slate-500 text-center">
+                    💡 Click legend to toggle • Click chart bar/point to see breakdown
                 </div>
             </div>
 
-            <!-- Spike Explanation Panel -->
-            <div x-show="selectedSpike" x-transition class="mt-4 p-4 bg-slate-800 rounded-lg border border-purple-500/30">
+            <!-- Spike Analysis Panel -->
+            <div x-show="selectedSpike" x-transition class="glass-card rounded-xl p-4 mb-6 border border-purple-500/30 bg-purple-500/5">
                 <div class="flex items-center justify-between mb-3">
                     <h4 class="font-semibold text-purple-300 flex items-center gap-2">
-                        <span>📊</span> Spike Analysis @ <span x-text="selectedSpike?.time"></span>
+                        📊 Point Analysis: <span class="font-mono" x-text="selectedSpike?.time"></span>
                     </h4>
                     <button @click="selectedSpike = null" class="text-slate-400 hover:text-white">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                        </svg>
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                     </button>
                 </div>
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div class="grid grid-cols-4 gap-4 mb-4">
                     <div>
-                        <div class="text-slate-400">Total at point</div>
+                        <div class="text-xs text-slate-400">Total Commands</div>
                         <div class="text-xl font-bold text-white" x-text="selectedSpike?.total?.toLocaleString()"></div>
                     </div>
                     <div>
-                        <div class="text-slate-400">Top contributor</div>
-                        <div class="font-mono text-purple-300 truncate" x-text="selectedSpike?.topContributor" :title="selectedSpike?.topContributor"></div>
+                        <div class="text-xs text-slate-400">Top Contributor</div>
+                        <div class="font-mono text-sm text-purple-300 truncate" x-text="selectedSpike?.topContributor" :title="selectedSpike?.topContributor"></div>
                     </div>
                     <div>
-                        <div class="text-slate-400">Contribution</div>
-                        <div class="text-white" x-text="selectedSpike?.topPercentage + '%'"></div>
+                        <div class="text-xs text-slate-400">Top %</div>
+                        <div class="text-lg font-bold text-white" x-text="selectedSpike?.topPercentage + '%'"></div>
                     </div>
                     <div>
-                        <div class="text-slate-400">Deviation from avg</div>
-                        <div class="font-bold" :class="selectedSpike?.deviation > 50 ? 'text-red-400' : selectedSpike?.deviation > 0 ? 'text-amber-400' : 'text-emerald-400'"
-                             x-text="(selectedSpike?.deviation > 0 ? '+' : '') + selectedSpike?.deviation?.toFixed(1) + '%'"></div>
+                        <div class="text-xs text-slate-400">vs Average</div>
+                        <div class="text-lg font-bold" :class="selectedSpike?.deviation > 50 ? 'text-red-400' : selectedSpike?.deviation > 0 ? 'text-amber-400' : 'text-emerald-400'"
+                             x-text="(selectedSpike?.deviation > 0 ? '+' : '') + selectedSpike?.deviation?.toFixed(0) + '%'"></div>
                     </div>
                 </div>
-                <div x-show="selectedSpike?.breakdown?.length > 0" class="mt-3 pt-3 border-t border-slate-700">
+                <div x-show="selectedSpike?.breakdown?.length > 0" class="pt-3 border-t border-slate-700">
                     <div class="text-xs text-slate-400 mb-2">Breakdown:</div>
-                    <div class="flex flex-wrap gap-2">
-                        <template x-for="item in selectedSpike?.breakdown?.slice(0, 6)" :key="item.label">
-                            <span class="px-2 py-1 bg-slate-700 rounded text-xs">
-                                <span class="text-slate-300" x-text="item.label?.substring(0, 20)"></span>:
-                                <span class="text-white font-medium" x-text="item.value?.toLocaleString()"></span>
-                            </span>
+                    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                        <template x-for="item in selectedSpike?.breakdown?.slice(0, 8)" :key="item.label">
+                            <div class="flex items-center justify-between bg-slate-800/50 rounded px-2 py-1.5">
+                                <span class="text-xs text-slate-300 truncate mr-2" x-text="item.label?.substring(0, 25)" :title="item.label"></span>
+                                <span class="text-xs font-mono text-white" x-text="item.value?.toLocaleString()"></span>
+                            </div>
                         </template>
                     </div>
+                </div>
+            </div>
+
+            <!-- Breakdown Table -->
+            <div class="glass-card rounded-xl overflow-hidden" x-show="breakdownData.length > 0">
+                <div class="px-6 py-4 border-b border-slate-700/50 flex items-center justify-between">
+                    <h3 class="font-semibold text-white">
+                        <span x-text="groupByLabel"></span> Breakdown
+                        <span class="text-sm font-normal text-slate-400 ml-2">(<span x-text="breakdownData.length"></span> items)</span>
+                    </h3>
+                    <div class="text-sm text-slate-400">
+                        Showing top <span x-text="Math.min(breakdownData.length, 20)"></span>
+                    </div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead class="bg-slate-800/50">
+                            <tr class="text-left text-xs text-slate-400 uppercase tracking-wider">
+                                <th class="px-6 py-3 font-medium w-8">#</th>
+                                <th class="px-6 py-3 font-medium">
+                                    <span x-text="groupByLabel"></span>
+                                </th>
+                                <th class="px-6 py-3 font-medium text-right">Count</th>
+                                <th class="px-6 py-3 font-medium text-right">% of Total</th>
+                                <th class="px-6 py-3 font-medium w-32">Distribution</th>
+                                <th class="px-6 py-3 font-medium w-24"></th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-800/50">
+                            <template x-for="(item, idx) in breakdownData.slice(0, 20)" :key="item.label">
+                                <tr class="hover:bg-slate-800/30">
+                                    <td class="px-6 py-3 text-sm text-slate-500" x-text="idx + 1"></td>
+                                    <td class="px-6 py-3">
+                                        <div class="flex items-center gap-2">
+                                            <div class="w-3 h-3 rounded" :style="'background-color: ' + item.color"></div>
+                                            <span class="font-mono text-sm text-white truncate max-w-md" x-text="item.label" :title="item.label"></span>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-3 text-right font-mono text-white" x-text="item.count.toLocaleString()"></td>
+                                    <td class="px-6 py-3 text-right text-slate-400" x-text="item.percentage.toFixed(1) + '%'"></td>
+                                    <td class="px-6 py-3">
+                                        <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+                                            <div class="h-full rounded-full" :style="'width: ' + item.percentage + '%; background-color: ' + item.color"></div>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-3 text-right">
+                                        <button @click="filterValue = item.label; fetchData()" 
+                                                class="text-xs px-2 py-1 bg-purple-600/20 text-purple-400 hover:bg-purple-600/40 rounded transition-colors">
+                                            Filter
+                                        </button>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
 
-        <!-- Data Table -->
-        <div class="bg-slate-900 rounded-xl border border-slate-800 mt-6 overflow-hidden" x-show="summary?.groups?.length > 0">
-            <div class="p-4 border-b border-slate-800">
-                <h3 class="font-semibold">Breakdown by <span x-text="groupBy === 'command' ? 'Command' : groupBy === 'client_ip' ? 'Client' : 'Pattern'"></span></h3>
+        <!-- Sidebar Controls (AWS Cost Explorer style) -->
+        <div class="w-full lg:w-72 flex-shrink-0 space-y-4 order-1 lg:order-2">
+            <!-- Granularity -->
+            <div class="glass-card rounded-xl p-4">
+                <h4 class="text-sm font-semibold text-white mb-3">Granularity</h4>
+                <select x-model="granularity" @change="fetchData()"
+                        class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                    <option value="1">1 second</option>
+                    <option value="5">5 seconds</option>
+                    <option value="10">10 seconds</option>
+                    <option value="30">30 seconds</option>
+                    <option value="60">1 minute</option>
+                </select>
             </div>
-            <div class="overflow-x-auto">
-                <table class="w-full">
-                    <thead class="bg-slate-800/50">
-                        <tr>
-                            <th class="px-4 py-3 text-left text-sm font-medium text-slate-300">#</th>
-                            <th class="px-4 py-3 text-left text-sm font-medium text-slate-300" x-text="groupBy === 'command' ? 'Command' : groupBy === 'client_ip' ? 'Client IP' : 'Pattern'"></th>
-                            <th class="px-4 py-3 text-right text-sm font-medium text-slate-300">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-800">
-                        <template x-for="(group, idx) in summary?.groups?.slice(0, 20)" :key="idx">
-                            <tr class="hover:bg-slate-800/50">
-                                <td class="px-4 py-3 text-sm text-slate-400" x-text="idx + 1"></td>
-                                <td class="px-4 py-3 text-sm font-mono" x-text="group"></td>
-                                <td class="px-4 py-3 text-right">
-                                    <button @click="filterValue = group; fetchData()" 
-                                            class="text-xs px-2 py-1 bg-purple-600/20 text-purple-400 hover:bg-purple-600/40 rounded transition-colors">
-                                        Filter
-                                    </button>
-                                </td>
-                            </tr>
-                        </template>
-                    </tbody>
-                </table>
+
+            <!-- Group By (Dimension) -->
+            <div class="glass-card rounded-xl p-4">
+                <h4 class="text-sm font-semibold text-white mb-3">Group By</h4>
+                <div class="space-y-2">
+                    <label class="flex items-center gap-2 cursor-pointer p-2 rounded-lg hover:bg-slate-800/50 transition-colors"
+                           :class="groupBy === 'command_signature' ? 'bg-purple-600/20 border border-purple-500/30' : ''">
+                        <input type="radio" value="command_signature" x-model="groupBy" @change="fetchData()" class="text-purple-500 focus:ring-purple-500 bg-slate-700 border-slate-600">
+                        <span class="text-sm text-slate-300">Command Signature</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer p-2 rounded-lg hover:bg-slate-800/50 transition-colors"
+                           :class="groupBy === 'command' ? 'bg-purple-600/20 border border-purple-500/30' : ''">
+                        <input type="radio" value="command" x-model="groupBy" @change="fetchData()" class="text-purple-500 focus:ring-purple-500 bg-slate-700 border-slate-600">
+                        <span class="text-sm text-slate-300">Command Type</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer p-2 rounded-lg hover:bg-slate-800/50 transition-colors"
+                           :class="groupBy === 'key_pattern' ? 'bg-purple-600/20 border border-purple-500/30' : ''">
+                        <input type="radio" value="key_pattern" x-model="groupBy" @change="fetchData()" class="text-purple-500 focus:ring-purple-500 bg-slate-700 border-slate-600">
+                        <span class="text-sm text-slate-300">Key Pattern</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer p-2 rounded-lg hover:bg-slate-800/50 transition-colors"
+                           :class="groupBy === 'client_ip' ? 'bg-purple-600/20 border border-purple-500/30' : ''">
+                        <input type="radio" value="client_ip" x-model="groupBy" @change="fetchData()" class="text-purple-500 focus:ring-purple-500 bg-slate-700 border-slate-600">
+                        <span class="text-sm text-slate-300">Client IP</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer p-2 rounded-lg hover:bg-slate-800/50 transition-colors"
+                           :class="groupBy === 'shard_name' ? 'bg-purple-600/20 border border-purple-500/30' : ''">
+                        <input type="radio" value="shard_name" x-model="groupBy" @change="fetchData()" class="text-purple-500 focus:ring-purple-500 bg-slate-700 border-slate-600">
+                        <span class="text-sm text-slate-300">Shard</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Filters -->
+            <div class="glass-card rounded-xl p-4 overflow-visible relative z-30">
+                <div class="flex items-center justify-between mb-3">
+                    <h4 class="text-sm font-semibold text-white">Filters</h4>
+                    <button x-show="hasActiveFilters()" 
+                            @click="clearAllFilters()"
+                            class="text-xs text-purple-400 hover:text-purple-300">Clear all</button>
+                </div>
+
+                <div class="space-y-3">
+                    <!-- Shard Filter -->
+                    <div x-data="{ open: false, search: '' }" class="relative">
+                        <label class="flex items-center justify-between text-xs font-medium text-slate-400 mb-1">
+                            <span>Shard <span x-show="availableOptions.shards.length" class="text-slate-500" x-text="'(' + availableOptions.shards.length + ')'"></span></span>
+                            <button x-show="selectedShards.length > 0" @click.stop="selectedShards = []; fetchFilterOptions(); fetchData()" class="text-purple-400 hover:text-purple-300">Clear</button>
+                        </label>
+                        <button @click="open = !open; search = ''; $nextTick(() => $refs.shardSearch.focus())" type="button"
+                                class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-left text-xs text-white flex items-center justify-between">
+                            <span class="truncate" x-text="selectedShards.length === 0 ? 'All' : selectedShards.join(', ')"></span>
+                            <svg class="w-3 h-3 text-slate-400 flex-shrink-0 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                        </button>
+                        <div x-show="open" @click.away="open = false" x-transition
+                             class="absolute z-[100] mt-1 left-0 right-0 bg-slate-800 border border-slate-700 rounded-lg shadow-2xl overflow-hidden">
+                            <div class="p-2 border-b border-slate-700">
+                                <input type="text" x-model="search" x-ref="shardSearch" placeholder="Search shards..." @click.stop
+                                       class="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500">
+                            </div>
+                            <div class="max-h-48 overflow-y-auto">
+                                <template x-for="shard in availableOptions.shards" :key="shard">
+                                    <label x-show="shard.toLowerCase().includes(search.toLowerCase())"
+                                           class="flex items-center px-3 py-2 hover:bg-slate-700 cursor-pointer text-xs" @click.stop>
+                                        <input type="checkbox" :value="shard" x-model="selectedShards" @change="toggleShard(shard)"
+                                               class="rounded bg-slate-700 border-slate-600 text-purple-500 focus:ring-purple-500 w-3 h-3">
+                                        <span class="ml-2" x-text="shard"></span>
+                                    </label>
+                                </template>
+                                <div x-show="availableOptions.shards.length === 0" class="px-3 py-2 text-xs text-slate-500 italic">No shards available</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Command Filter -->
+                    <div x-data="{ open: false, search: '' }" class="relative">
+                        <label class="flex items-center justify-between text-xs font-medium text-slate-400 mb-1">
+                            <span>Command <span x-show="availableOptions.commands.length" class="text-slate-500" x-text="'(' + availableOptions.commands.length + ')'"></span></span>
+                            <button x-show="filters.command" @click.stop="filters.command = ''; fetchFilterOptions(); fetchData()" class="text-purple-400 hover:text-purple-300">Clear</button>
+                        </label>
+                        <button @click="open = !open; search = ''; $nextTick(() => $refs.cmdSearch.focus())" type="button"
+                                class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-left text-xs text-white flex items-center justify-between">
+                            <span x-text="filters.command || 'All'"></span>
+                            <svg class="w-3 h-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                        </button>
+                        <div x-show="open" @click.away="open = false" x-transition
+                             class="absolute z-[100] mt-1 left-0 right-0 bg-slate-800 border border-slate-700 rounded-lg shadow-2xl overflow-hidden">
+                            <div class="p-2 border-b border-slate-700">
+                                <input type="text" x-model="search" x-ref="cmdSearch" placeholder="Search commands..." @click.stop
+                                       class="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500">
+                            </div>
+                            <div class="max-h-48 overflow-y-auto">
+                                <template x-for="cmd in availableOptions.commands" :key="cmd">
+                                    <button x-show="cmd.toLowerCase().includes(search.toLowerCase())"
+                                            @click="applyFilter('command', cmd); open = false;"
+                                            class="block w-full text-left px-3 py-2 hover:bg-slate-700 text-xs" x-text="cmd"></button>
+                                </template>
+                                <div x-show="availableOptions.commands.length === 0" class="px-3 py-2 text-xs text-slate-500 italic">No commands match current filters</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Client IP Filter -->
+                    <div>
+                        <label class="flex items-center justify-between text-xs font-medium text-slate-400 mb-1">
+                            <span>Client IP</span>
+                            <button x-show="filters.client_ip" @click.stop="filters.client_ip = ''; fetchFilterOptions(); fetchData()" class="text-purple-400 hover:text-purple-300">Clear</button>
+                        </label>
+                        <input type="text" x-model="filters.client_ip" @input.debounce.500ms="fetchFilterOptions(); fetchData()"
+                               placeholder="e.g., 10.0.1.50"
+                               class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white placeholder-slate-500">
+                    </div>
+
+                    <!-- Key Pattern Filter -->
+                    <div x-data="{ open: false, search: '' }" class="relative">
+                        <label class="flex items-center justify-between text-xs font-medium text-slate-400 mb-1">
+                            <span>Key Pattern <span x-show="availableOptions.patterns.length" class="text-slate-500" x-text="'(' + availableOptions.patterns.length + ')'"></span></span>
+                            <button x-show="filters.key_pattern" @click.stop="filters.key_pattern = ''; fetchFilterOptions(); fetchData()" class="text-purple-400 hover:text-purple-300">Clear</button>
+                        </label>
+                        <button @click="open = !open; search = ''; $nextTick(() => $refs.patternSearch.focus())" type="button"
+                                class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-left text-xs text-white flex items-center justify-between truncate">
+                            <span class="truncate" x-text="filters.key_pattern || 'All'"></span>
+                            <svg class="w-3 h-3 text-slate-400 flex-shrink-0 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                        </button>
+                        <div x-show="open" @click.away="open = false" x-transition
+                             class="absolute z-[100] mt-1 left-0 right-0 bg-slate-800 border border-slate-700 rounded-lg shadow-2xl overflow-hidden">
+                            <div class="p-2 border-b border-slate-700">
+                                <input type="text" x-model="search" x-ref="patternSearch" placeholder="Search patterns..." @click.stop
+                                       class="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500">
+                            </div>
+                            <div class="max-h-48 overflow-y-auto">
+                                <template x-for="pattern in availableOptions.patterns" :key="pattern">
+                                    <button x-show="pattern.toLowerCase().includes(search.toLowerCase())"
+                                            @click="applyFilter('key_pattern', pattern); open = false;"
+                                            class="block w-full text-left px-3 py-2 hover:bg-slate-700 text-xs truncate font-mono" 
+                                            :title="pattern" x-text="pattern.substring(0, 40) + (pattern.length > 40 ? '...' : '')"></button>
+                                </template>
+                                <div x-show="availableOptions.patterns.length === 0" class="px-3 py-2 text-xs text-slate-500 italic">No patterns match current filters</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Signature Filter -->
+                    <div x-data="{ open: false, search: '' }" class="relative">
+                        <label class="flex items-center justify-between text-xs font-medium text-slate-400 mb-1">
+                            <span>Signature <span x-show="availableOptions.signatures.length" class="text-slate-500" x-text="'(' + availableOptions.signatures.length + ')'"></span></span>
+                            <button x-show="filters.command_signature" @click.stop="filters.command_signature = ''; fetchFilterOptions(); fetchData()" class="text-purple-400 hover:text-purple-300">Clear</button>
+                        </label>
+                        <button @click="open = !open; search = ''; $nextTick(() => $refs.sigSearch.focus())" type="button"
+                                class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-left text-xs text-white flex items-center justify-between truncate">
+                            <span class="truncate" x-text="filters.command_signature || 'All'"></span>
+                            <svg class="w-3 h-3 text-slate-400 flex-shrink-0 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                        </button>
+                        <div x-show="open" @click.away="open = false" x-transition
+                             class="absolute z-[100] mt-1 left-0 right-0 bg-slate-800 border border-slate-700 rounded-lg shadow-2xl overflow-hidden">
+                            <div class="p-2 border-b border-slate-700">
+                                <input type="text" x-model="search" x-ref="sigSearch" placeholder="Search signatures..." @click.stop
+                                       class="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500">
+                            </div>
+                            <div class="max-h-48 overflow-y-auto">
+                                <template x-for="sig in availableOptions.signatures" :key="sig">
+                                    <button x-show="sig.toLowerCase().includes(search.toLowerCase())"
+                                            @click="applyFilter('command_signature', sig); open = false;"
+                                            class="block w-full text-left px-3 py-2 hover:bg-slate-700 text-xs truncate font-mono" 
+                                            :title="sig" x-text="sig.substring(0, 40) + (sig.length > 40 ? '...' : '')"></button>
+                                </template>
+                                <div x-show="availableOptions.signatures.length === 0" class="px-3 py-2 text-xs text-slate-500 italic">No signatures match current filters</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="glass-card rounded-xl p-4 relative z-10">
+                <h4 class="text-sm font-semibold text-white mb-3">Quick Actions</h4>
+                <div class="space-y-2">
+                    <button @click="groupBy = 'command'; clearAllFilters()"
+                            class="w-full text-left px-3 py-2 text-xs bg-slate-800 hover:bg-purple-600/20 rounded border border-slate-700 transition-colors flex items-center gap-2">
+                        <span class="text-purple-400">⚡</span> View by Command Type
+                    </button>
+                    <button @click="groupBy = 'client_ip'; clearAllFilters()"
+                            class="w-full text-left px-3 py-2 text-xs bg-slate-800 hover:bg-purple-600/20 rounded border border-slate-700 transition-colors flex items-center gap-2">
+                        <span class="text-cyan-400">🖥️</span> View by Client IP
+                    </button>
+                    <button @click="groupBy = 'key_pattern'; clearAllFilters()"
+                            class="w-full text-left px-3 py-2 text-xs bg-slate-800 hover:bg-purple-600/20 rounded border border-slate-700 transition-colors flex items-center gap-2">
+                        <span class="text-amber-400">📊</span> View by Key Pattern
+                    </button>
+                    <button @click="groupBy = 'shard_name'; clearAllFilters()"
+                            class="w-full text-left px-3 py-2 text-xs bg-slate-800 hover:bg-purple-600/20 rounded border border-slate-700 transition-colors flex items-center gap-2">
+                        <span class="text-emerald-400">💾</span> View by Shard
+                    </button>
+                </div>
+                <div class="mt-3 pt-3 border-t border-slate-700">
+                    <div class="text-xs text-slate-400 mb-2">Common Commands</div>
+                    <div class="flex flex-wrap gap-1">
+                        {% for cmd in commands[:8] %}
+                        <button @click="filters.command = '{{ cmd }}'; fetchData()"
+                                class="px-2 py-1 text-xs bg-slate-800 hover:bg-purple-600/30 hover:text-purple-300 rounded border border-slate-700 transition-colors">
+                            {{ cmd }}
+                        </button>
+                        {% endfor %}
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 function timelineApp() {
     return {
         jobId: '{{ job.id }}',
-        groupBy: 'command_signature',  // Default to signature for insight density
-        granularity: 1,
+        groupBy: 'command_signature',
+        granularity: 5,
         selectedShards: [],
-        filterValue: '',
+        filters: {
+            command: '',
+            client_ip: '',
+            key_pattern: '',
+            command_signature: ''
+        },
+        filterValue: '',  // Legacy, kept for quick filter compatibility
         chartType: 'bar',
-        stackByShard: true,  // Default: stack by shard
         loading: true,
         error: null,
         summary: null,
         chart: null,
         chartData: null,
-        selectedSpike: null,  // For spike explanation
+        selectedSpike: null,
+        breakdownData: [],
+        // Dynamic filter options
+        availableOptions: {
+            commands: {{ commands | tojson }},
+            patterns: {{ patterns | tojson }},
+            signatures: {{ signatures | tojson }},
+            shards: {{ shards | tojson }}
+        },
+        optionsLoading: false,
+
+        get groupByLabel() {
+            const labels = {
+                'command_signature': 'Signature',
+                'command': 'Command',
+                'client_ip': 'Client IP',
+                'key_pattern': 'Key Pattern',
+                'shard_name': 'Shard'
+            };
+            return labels[this.groupBy] || 'Group';
+        },
+
+        hasActiveFilters() {
+            return this.selectedShards.length > 0 || 
+                   this.filters.command || 
+                   this.filters.client_ip || 
+                   this.filters.key_pattern || 
+                   this.filters.command_signature ||
+                   this.filterValue;
+        },
+
+        clearAllFilters() {
+            this.selectedShards = [];
+            this.filters = { command: '', client_ip: '', key_pattern: '', command_signature: '' };
+            this.filterValue = '';
+            this.fetchFilterOptions();
+            this.fetchData();
+        },
 
         init() {
+            this.fetchData();
+        },
+
+        async fetchFilterOptions() {
+            this.optionsLoading = true;
+            const params = new URLSearchParams();
+            
+            if (this.filters.command) params.set('filter_command', this.filters.command);
+            if (this.filters.client_ip) params.set('filter_client_ip', this.filters.client_ip);
+            if (this.filters.key_pattern) params.set('filter_key_pattern', this.filters.key_pattern);
+            if (this.filters.command_signature) params.set('filter_command_signature', this.filters.command_signature);
+            if (this.selectedShards.length > 0) params.set('filter_shard', this.selectedShards.join(','));
+
+            try {
+                const response = await fetch(`/api/jobs/${this.jobId}/filter-options?${params}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    this.availableOptions = {
+                        commands: data.commands || [],
+                        patterns: data.patterns || [],
+                        signatures: data.signatures || [],
+                        shards: data.shards || []
+                    };
+                }
+            } catch (e) {
+                console.error('Failed to fetch filter options:', e);
+            }
+            this.optionsLoading = false;
+        },
+
+        async applyFilter(type, value) {
+            this.filters[type] = value;
+            await this.fetchFilterOptions();
+            this.fetchData();
+        },
+
+        async toggleShard(shard) {
+            if (this.selectedShards.includes(shard)) {
+                this.selectedShards = this.selectedShards.filter(s => s !== shard);
+            } else {
+                this.selectedShards.push(shard);
+            }
+            await this.fetchFilterOptions();
             this.fetchData();
         },
 
         async fetchData() {
             this.loading = true;
             this.error = null;
+            this.selectedSpike = null;
 
             const params = new URLSearchParams({
                 group_by: this.groupBy,
@@ -321,9 +570,15 @@ function timelineApp() {
             if (this.selectedShards.length > 0) {
                 params.set('shards', this.selectedShards.join(','));
             }
-            if (this.filterValue) {
-                params.set('filter_value', this.filterValue);
-            }
+            
+            // Add individual filters
+            if (this.filters.command) params.set('filter_command', this.filters.command);
+            if (this.filters.client_ip) params.set('filter_client_ip', this.filters.client_ip);
+            if (this.filters.key_pattern) params.set('filter_key_pattern', this.filters.key_pattern);
+            if (this.filters.command_signature) params.set('filter_command_signature', this.filters.command_signature);
+            
+            // Legacy filter value (for quick filters)
+            if (this.filterValue) params.set('filter_value', this.filterValue);
 
             try {
                 const response = await fetch(`/api/jobs/${this.jobId}/timeline-data?${params}`);
@@ -334,12 +589,32 @@ function timelineApp() {
 
                 this.chartData = await response.json();
                 this.summary = this.chartData.summary;
+                this.calculateBreakdown();
                 this.renderChart();
             } catch (e) {
                 this.error = e.message;
             } finally {
                 this.loading = false;
             }
+        },
+
+        calculateBreakdown() {
+            if (!this.chartData?.datasets) {
+                this.breakdownData = [];
+                return;
+            }
+
+            const totals = this.chartData.datasets.map(ds => ({
+                label: ds.label,
+                count: ds.data.reduce((a, b) => a + b, 0),
+                color: ds.backgroundColor?.replace('0.7', '1') || ds.borderColor || '#94a3b8'
+            }));
+
+            const grandTotal = totals.reduce((a, b) => a + b.count, 0);
+            
+            this.breakdownData = totals
+                .map(t => ({ ...t, percentage: grandTotal > 0 ? (t.count / grandTotal) * 100 : 0 }))
+                .sort((a, b) => b.count - a.count);
         },
 
         renderChart() {
@@ -351,18 +626,19 @@ function timelineApp() {
             }
 
             const isLine = this.chartType === 'line';
+            const isArea = this.chartType === 'area';
 
-            // Modify datasets for line chart
             const datasets = this.chartData.datasets.map(ds => ({
                 ...ds,
-                fill: isLine,
-                tension: 0.3,
+                fill: isArea,
+                tension: isLine || isArea ? 0.3 : 0,
                 pointRadius: isLine ? 2 : 0,
-                pointHoverRadius: isLine ? 5 : 0
+                pointHoverRadius: isLine ? 5 : 0,
+                borderWidth: isLine || isArea ? 2 : 1
             }));
 
             this.chart = new Chart(ctx, {
-                type: this.chartType,
+                type: isArea ? 'line' : this.chartType,
                 data: {
                     labels: this.chartData.labels,
                     datasets: datasets
@@ -370,136 +646,96 @@ function timelineApp() {
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    interaction: {
-                        intersect: false,
-                        mode: 'index'
-                    },
+                    interaction: { intersect: false, mode: 'index' },
                     scales: {
                         x: {
-                            stacked: this.chartType === 'bar',
+                            stacked: this.chartType === 'bar' || isArea,
                             grid: { color: 'rgba(148, 163, 184, 0.1)' },
-                            ticks: { color: '#94a3b8' }
+                            ticks: { color: '#94a3b8', maxRotation: 45, minRotation: 0 }
                         },
                         y: {
-                            stacked: this.chartType === 'bar',
+                            stacked: this.chartType === 'bar' || isArea,
                             grid: { color: 'rgba(148, 163, 184, 0.1)' },
-                            ticks: { 
-                                color: '#94a3b8',
-                                callback: (value) => this.formatNumber(value)
-                            }
+                            ticks: { color: '#94a3b8', callback: (v) => this.formatNumber(v) },
+                            beginAtZero: true
                         }
                     },
                     plugins: {
                         legend: {
-                            position: 'top',
+                            position: 'bottom',
                             labels: { 
-                                color: '#e2e8f0',
-                                usePointStyle: true,
-                                padding: 15
-                            },
-                            onClick: (e, legendItem, legend) => {
-                                // Right-click behavior handled separately
-                                const index = legendItem.datasetIndex;
-                                const meta = legend.chart.getDatasetMeta(index);
-                                meta.hidden = !meta.hidden;
-                                legend.chart.update();
+                                color: '#e2e8f0', 
+                                usePointStyle: true, 
+                                padding: 15,
+                                boxWidth: 8
                             }
                         },
                         tooltip: {
-                            backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                            backgroundColor: 'rgba(15, 23, 42, 0.95)',
                             titleColor: '#f8fafc',
                             bodyColor: '#e2e8f0',
                             borderColor: '#334155',
                             borderWidth: 1,
                             callbacks: {
-                                label: (context) => {
-                                    return `${context.dataset.label}: ${this.formatNumber(context.raw)}`;
-                                }
+                                label: (context) => `${context.dataset.label}: ${this.formatNumber(context.raw)}`
                             }
                         }
                     }
                 }
             });
 
-            // Add right-click to isolate
-            ctx.addEventListener('contextmenu', (e) => {
-                e.preventDefault();
-                const points = this.chart.getElementsAtEventForMode(e, 'nearest', { intersect: false }, false);
-                if (points.length) {
-                    const datasetIndex = points[0].datasetIndex;
-                    // Toggle: if only this one is visible, show all; else isolate this one
-                    const allHidden = this.chart.data.datasets.every((ds, i) => 
-                        i === datasetIndex ? false : this.chart.getDatasetMeta(i).hidden
-                    );
-                    
-                    this.chart.data.datasets.forEach((ds, i) => {
-                        this.chart.getDatasetMeta(i).hidden = allHidden ? false : (i !== datasetIndex);
-                    });
-                    this.chart.update();
-                }
-            });
-
-            // Add click to explain spike
+            // Click handler for spike analysis
             ctx.addEventListener('click', (e) => {
                 const points = this.chart.getElementsAtEventForMode(e, 'index', { intersect: false }, false);
                 if (points.length > 0) {
                     const dataIndex = points[0].index;
-                    const time = this.chartData.labels[dataIndex];
-                    
-                    // Calculate totals for this time point
-                    let total = 0;
-                    let breakdown = [];
-                    
-                    this.chart.data.datasets.forEach((ds, i) => {
-                        const meta = this.chart.getDatasetMeta(i);
-                        if (!meta.hidden) {
-                            const value = ds.data[dataIndex] || 0;
-                            total += value;
-                            breakdown.push({ label: ds.label, value: value });
-                        }
-                    });
-                    
-                    // Sort breakdown by value
-                    breakdown.sort((a, b) => b.value - a.value);
-                    
-                    // Calculate average across all time points
-                    const allTotals = this.chartData.labels.map((_, i) => {
-                        return this.chart.data.datasets.reduce((sum, ds) => {
-                            const meta = this.chart.getDatasetMeta(this.chart.data.datasets.indexOf(ds));
-                            return sum + (meta.hidden ? 0 : (ds.data[i] || 0));
-                        }, 0);
-                    });
-                    const avg = allTotals.reduce((a, b) => a + b, 0) / allTotals.length;
-                    const deviation = avg > 0 ? ((total - avg) / avg) * 100 : 0;
-                    
-                    const topContributor = breakdown[0]?.label || 'N/A';
-                    const topPercentage = total > 0 ? ((breakdown[0]?.value || 0) / total * 100).toFixed(1) : 0;
-                    
-                    this.selectedSpike = {
-                        time,
-                        total,
-                        topContributor,
-                        topPercentage,
-                        deviation,
-                        breakdown
-                    };
+                    this.analyzePoint(dataIndex);
                 }
             });
         },
 
-        updateChartType() {
-            if (this.chartData) {
-                this.renderChart();
-            }
+        analyzePoint(dataIndex) {
+            const time = this.chartData.labels[dataIndex];
+            let total = 0;
+            let breakdown = [];
+
+            this.chart.data.datasets.forEach((ds, i) => {
+                const meta = this.chart.getDatasetMeta(i);
+                if (!meta.hidden) {
+                    const value = ds.data[dataIndex] || 0;
+                    total += value;
+                    breakdown.push({ label: ds.label, value: value });
+                }
+            });
+
+            breakdown.sort((a, b) => b.value - a.value);
+
+            // Calculate average
+            const allTotals = this.chartData.labels.map((_, i) => {
+                return this.chart.data.datasets.reduce((sum, ds, dsIdx) => {
+                    const meta = this.chart.getDatasetMeta(dsIdx);
+                    return sum + (meta.hidden ? 0 : (ds.data[i] || 0));
+                }, 0);
+            });
+            const avg = allTotals.reduce((a, b) => a + b, 0) / allTotals.length;
+            const deviation = avg > 0 ? ((total - avg) / avg) * 100 : 0;
+
+            this.selectedSpike = {
+                time,
+                total,
+                topContributor: breakdown[0]?.label || 'N/A',
+                topPercentage: total > 0 ? ((breakdown[0]?.value || 0) / total * 100).toFixed(1) : 0,
+                deviation,
+                breakdown
+            };
         },
 
         formatNumber(n) {
             if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
             if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
-            return n.toLocaleString();
+            return n?.toLocaleString() || '0';
         }
     };
 }
 </script>
 {% endblock %}
-

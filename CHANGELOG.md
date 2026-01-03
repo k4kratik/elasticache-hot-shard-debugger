@@ -1,6 +1,55 @@
 # Changelog
 
-All notable changes to the Redis Hot Shard Debugger Web UI.
+All notable changes to the ElastiCache Hot Shard Debugger Web UI.
+
+---
+
+## Session: January 3, 2026
+
+### UI Polish & Production Readiness
+
+#### 1. **Consistent Navigation with Icons**
+- Added matching icons to all page navigation buttons (Overview, Timeline, Shards, Analyze, SQL)
+- Icons match page purpose: grid for Overview, chart for Timeline, database for Shards, bars for Analyze, terminal for SQL
+- Consistent styling across all job-related pages
+
+#### 2. **Standardized Breadcrumb Navigation**
+- Added proper breadcrumb navigation to Timeline and Shard Distribution pages
+- Format: `Jobs → [Job Name] → [Current Page]`
+- Consistent header structure with title icons across all pages
+
+#### 3. **Mobile Responsiveness**
+- Added hamburger menu for mobile devices in navbar
+- Stats grids now use responsive breakpoints (`grid-cols-2 lg:grid-cols-4`)
+- Navigation wraps properly on smaller screens
+- Footer links responsive layout
+
+#### 4. **Accessibility Improvements**
+- Added visible focus styles for keyboard navigation (`:focus-visible`)
+- Added `prefers-reduced-motion` media query for users who prefer less animation
+- Proper color contrast maintained
+
+#### 5. **Footer Enhancement**
+- Added footer links to About page and GitHub
+- Version number displayed in footer
+- Responsive layout for mobile
+
+#### 6. **Job ID in Jobs List**
+- Shows first 8 characters of job UUID in the jobs list
+- Hash icon indicator
+- Full job ID shown on hover (tooltip)
+- Muted styling to not compete with job name
+
+#### 7. **Auto-Focus on Filter Search**
+- Filter dropdowns now auto-focus the search input when opened
+- Immediately start typing to filter options
+- Works on both Timeline and Shard Distribution pages
+- All dropdown filters: Shard, Command, Key Pattern, Signature
+
+#### 8. **Compare Page Polish**
+- Added breadcrumb navigation
+- Title icon for visual consistency
+- Responsive header layout
 
 ---
 
