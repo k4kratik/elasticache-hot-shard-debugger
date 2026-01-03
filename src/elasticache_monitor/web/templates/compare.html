@@ -71,7 +71,7 @@
                     </div>
                     <div class="min-w-0 flex-1">
                         <div class="font-medium text-white truncate">{{ job.name or job.replication_group_id }}</div>
-                        <div class="text-xs text-slate-500">{{ job.created_at.strftime('%Y-%m-%d %H:%M') }} · {{ job.total_commands|format_number }} cmds</div>
+                        <div class="text-xs text-slate-500"><span data-utc="{{ job.created_at.isoformat() }}" data-format="short">{{ job.created_at.strftime('%m/%d %H:%M') }}</span> · {{ job.total_commands|format_number }} cmds</div>
                     </div>
                 </div>
             </button>
@@ -116,7 +116,7 @@
                 <h3 class="font-semibold text-white truncate">{{ job.name or job.replication_group_id }}</h3>
             </div>
             <div class="text-xs text-slate-500 mb-2 font-mono">{{ job.id[:8] }}...</div>
-            <div class="text-xs text-slate-400">{{ job.created_at.strftime('%Y-%m-%d %H:%M') }}</div>
+            <div class="text-xs text-slate-400" data-utc="{{ job.created_at.isoformat() }}" data-format="short">{{ job.created_at.strftime('%m/%d %H:%M') }}</div>
         </div>
         {% endfor %}
     </div>

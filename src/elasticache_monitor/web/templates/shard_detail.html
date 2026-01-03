@@ -235,7 +235,7 @@
                 <tbody>
                     {% for cmd in recent_commands %}
                     <tr class="border-b border-slate-800/50 hover:bg-slate-800/30 text-sm">
-                        <td class="px-6 py-2 font-mono text-slate-500 whitespace-nowrap">
+                        <td class="px-6 py-2 font-mono text-slate-500 whitespace-nowrap" data-utc="{{ cmd.datetime_utc }}" data-format="time">
                             {{ cmd.datetime_utc[11:19] }}
                         </td>
                         <td class="px-6 py-2">

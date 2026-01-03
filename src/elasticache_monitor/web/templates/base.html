@@ -95,6 +95,36 @@
             50% { background-position: 100% 50%; }
         }
     </style>
+    <script>
+        // Convert UTC timestamps to local time
+        function formatLocalTime(utcString, format = 'datetime') {
+            if (!utcString) return '';
+            const date = new Date(utcString.endsWith('Z') ? utcString : utcString + 'Z');
+            if (isNaN(date.getTime())) return utcString;
+            
+            const pad = n => n.toString().padStart(2, '0');
+            const year = date.getFullYear();
+            const month = pad(date.getMonth() + 1);
+            const day = pad(date.getDate());
+            const hours = pad(date.getHours());
+            const mins = pad(date.getMinutes());
+            const secs = pad(date.getSeconds());
+            
+            if (format === 'date') return `${year}-${month}-${day}`;
+            if (format === 'time') return `${hours}:${mins}:${secs}`;
+            if (format === 'short') return `${month}/${day} ${hours}:${mins}`;
+            return `${year}-${month}-${day} ${hours}:${mins}:${secs}`;
+        }
+        
+        // Auto-convert elements with data-utc attribute on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('[data-utc]').forEach(el => {
+                const utc = el.getAttribute('data-utc');
+                const format = el.getAttribute('data-format') || 'datetime';
+                el.textContent = formatLocalTime(utc, format);
+            });
+        });
+    </script>
 </head>
 <body class="h-full font-sans text-slate-100 antialiased">
     <div class="min-h-full flex flex-col">

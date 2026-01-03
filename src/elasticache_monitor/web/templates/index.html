@@ -279,7 +279,7 @@
                     {% endif %}
                     <div>
                         <span class="text-white font-medium">{{ job.name or job.replication_group_id }}</span>
-                        <span class="text-xs text-slate-500 ml-2">{{ job.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                        <span class="text-xs text-slate-500 ml-2" data-utc="{{ job.created_at.isoformat() }}" data-format="short">{{ job.created_at.strftime('%m/%d %H:%M') }}</span>
                     </div>
                 </div>
                 <div class="flex items-center gap-2">
