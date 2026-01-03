@@ -184,7 +184,6 @@
                             </div>
                         </th>
                         {% endif %}
-                        <th class="px-6 py-3 font-medium">Distribution</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -201,8 +200,13 @@
                             <td class="px-6 py-4 text-right">
                                 <span class="font-mono text-white" x-text="formatNumber(item.count)"></span>
                             </td>
-                            <td class="px-6 py-4 text-right">
-                                <span class="text-slate-400" x-text="formatPct(item.count)"></span>
+                            <td class="px-6 py-4">
+                                <div class="flex items-center justify-end gap-2">
+                                    <div class="w-16 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                                        <div class="h-full rounded-full bg-redis-500" :style="'width: ' + Math.min(100, (item.count / totalCommands) * 100) + '%'"></div>
+                                    </div>
+                                    <span class="text-slate-400 w-14 text-right" x-text="formatPct(item.count)"></span>
+                                </div>
                             </td>
                             {% if group_by in ['key_pattern', 'key', 'shard'] %}
                             <td class="px-6 py-4 text-right">
@@ -215,13 +219,6 @@
                                 {% endif %}
                             </td>
                             {% endif %}
-                            <td class="px-6 py-4">
-                                <div class="w-32 h-2 bg-slate-800 rounded-full overflow-hidden">
-                                    <div class="h-full rounded-full transition-all"
-                                         :class="(item.count / maxCount * 100) > 80 ? 'bg-redis-500' : (item.count / maxCount * 100) > 50 ? 'bg-amber-500' : 'bg-emerald-500'"
-                                         :style="'width: ' + (item.count / maxCount * 100) + '%'"></div>
-                                </div>
-                            </td>
                         </tr>
                     </template>
                 </tbody>
