@@ -1,7 +1,7 @@
 """Database connection and session management for web UI.
 
 Architecture:
-- Main DB (redis_monitor.db): Job metadata only (MonitorJob, MonitorShard)
+- Main DB (elasticache_monitor.db): Job metadata only (MonitorJob, MonitorShard)
 - Per-job DB (data/jobs/{job_id}.db): Commands for each job (RedisCommand, KeySizeCache)
 """
 
@@ -12,10 +12,11 @@ from contextlib import contextmanager
 from typing import Generator
 import os
 import logging
+import shutil
 
 from .models import MetadataBase, CommandBase
 
-logger = logging.getLogger("redis-monitor-web")
+logger = logging.getLogger("elasticache-monitor-web")
 
 # ============================================================================
 # PATHS
@@ -24,8 +25,15 @@ logger = logging.getLogger("redis-monitor-web")
 # Project root
 PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
 
-# Main metadata database
-METADATA_DB_PATH = PROJECT_ROOT / "redis_monitor.db"
+# Main metadata database (with backward compatibility)
+OLD_METADATA_DB_PATH = PROJECT_ROOT / "redis_monitor.db"
+METADATA_DB_PATH = PROJECT_ROOT / "elasticache_monitor.db"
+
+# Migrate old DB to new name if exists
+if OLD_METADATA_DB_PATH.exists() and not METADATA_DB_PATH.exists():
+    shutil.move(str(OLD_METADATA_DB_PATH), str(METADATA_DB_PATH))
+    logger.info(f"Migrated database: {OLD_METADATA_DB_PATH} -> {METADATA_DB_PATH}")
+
 METADATA_DATABASE_URL = f"sqlite:///{METADATA_DB_PATH}"
 
 # Per-job databases directory

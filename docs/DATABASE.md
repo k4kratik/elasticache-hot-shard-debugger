@@ -4,7 +4,7 @@
 
 The ElastiCache Monitor uses a **hybrid SQLite architecture**:
 
-- **Main DB** (`data/redis_monitor.db`): Job metadata
+- **Main DB** (`elasticache_monitor.db`): Job metadata
 - **Per-Job DBs** (`data/jobs/{job_id}.db`): Command data for each job
 
 This enables fast queries on large datasets and easy cleanup.

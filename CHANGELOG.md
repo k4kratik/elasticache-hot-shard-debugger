@@ -123,7 +123,7 @@ All notable changes to the Redis Hot Shard Debugger Web UI.
 
 #### 14. **Per-Job Database Architecture**
 - Migrated from single SQLite DB to hybrid architecture
-- Main DB (`redis_monitor.db`) stores job metadata
+- Main DB (`elasticache_monitor.db`) stores job metadata
 - Per-job DBs (`data/jobs/{job_id}.db`) store command data
 - Improves query performance for large datasets
 - Migration script created to move existing data

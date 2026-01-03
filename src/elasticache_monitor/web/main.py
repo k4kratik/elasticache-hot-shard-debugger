@@ -26,7 +26,7 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
     handlers=[logging.StreamHandler(sys.stdout)]
 )
-logger = logging.getLogger("redis-monitor-web")
+logger = logging.getLogger("elasticache-monitor-web")
 
 # Initialize FastAPI app
 app = FastAPI(

@@ -1,4 +1,4 @@
-"""Background task runner for Redis monitoring jobs."""
+"""Background task runner for ElastiCache monitoring jobs."""
 
 import logging
 import time
@@ -17,7 +17,7 @@ from .signatures import classify_command
 from ..endpoints import get_replica_endpoints, get_all_endpoints
 from ..utils import extract_key_pattern
 
-logger = logging.getLogger("redis-monitor-web")
+logger = logging.getLogger("elasticache-monitor-web")
 
 
 class WebShardMonitor:

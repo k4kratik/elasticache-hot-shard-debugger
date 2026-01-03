@@ -1,7 +1,7 @@
-"""SQLAlchemy models for Redis Monitor Web UI.
+"""SQLAlchemy models for ElastiCache Monitor Web UI.
 
 Architecture:
-- MetadataBase: Models stored in main DB (redis_monitor.db)
+- MetadataBase: Models stored in main DB (elasticache_monitor.db)
 - CommandBase: Models stored in per-job DB (data/jobs/{job_id}.db)
 """
 
@@ -39,7 +39,7 @@ class ShardStatus(enum.Enum):
 
 
 # ============================================================================
-# METADATA MODELS (stored in redis_monitor.db)
+# METADATA MODELS (stored in elasticache_monitor.db)
 # ============================================================================
 
 class MonitorJob(MetadataBase):
