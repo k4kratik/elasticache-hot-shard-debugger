@@ -122,6 +122,19 @@ async def startup_event():
 
 
 # =============================================================================
+# ABOUT PAGE
+# =============================================================================
+
+@app.get("/about", response_class=HTMLResponse)
+async def about(request: Request):
+    """About page with project and author information."""
+    return templates.TemplateResponse("about.html", {
+        "request": request,
+        "page_title": "About",
+    })
+
+
+# =============================================================================
 # HOME PAGE
 # =============================================================================
 
