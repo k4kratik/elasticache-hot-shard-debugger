@@ -9,6 +9,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-sql.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -107,6 +109,14 @@
             0%, 100% { background-position: 0% 50%; }
             50% { background-position: 100% 50%; }
         }
+        /* Prism.js SQL syntax highlighting theme matching app palette */
+        .token.keyword { color: #fb923c; font-weight: 600; } /* orange-400 */
+        .token.function { color: #fbbf24; } /* amber-400 */
+        .token.string { color: #34d399; } /* emerald-400 */
+        .token.number { color: #22d3ee; } /* cyan-400 */
+        .token.operator { color: #f472b6; } /* pink-400 */
+        .token.comment { color: #64748b; font-style: italic; } /* slate-500 */
+        .token.table { color: #ffffff; font-weight: 500; } /* white */
     </style>
     <script>
         // Convert UTC timestamps to local time

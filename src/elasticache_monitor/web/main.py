@@ -1077,7 +1077,18 @@ async def compare_jobs(
     db: Session = Depends(get_db)
 ):
     """Compare multiple monitoring jobs side by side."""
-    job_ids = [j.strip() for j in jobs.split(",") if j.strip()]
+    job_ids_raw = [j.strip() for j in jobs.split(",") if j.strip()]
+    
+    # Remove duplicates while preserving order
+    seen = set()
+    job_ids = []
+    for jid in job_ids_raw:
+        if jid not in seen:
+            seen.add(jid)
+            job_ids.append(jid)
+    
+    # Track if duplicates were removed
+    had_duplicates = len(job_ids_raw) != len(job_ids)
     
     # Get all completed jobs for the selection UI
     all_completed_jobs = db.query(MonitorJob).filter(
@@ -1090,7 +1101,8 @@ async def compare_jobs(
             "jobs": [],
             "all_jobs": all_completed_jobs,
             "stats": {},
-            "page_title": "Compare Jobs"
+            "page_title": "Compare Jobs",
+            "had_duplicates": had_duplicates
         })
     
     # Fetch job objects
@@ -1106,7 +1118,8 @@ async def compare_jobs(
             "jobs": [],
             "all_jobs": all_completed_jobs,
             "stats": {},
-            "page_title": "Compare Jobs"
+            "page_title": "Compare Jobs",
+            "had_duplicates": had_duplicates
         })
     
     # Gather stats for each job
@@ -1182,7 +1195,8 @@ async def compare_jobs(
         "request": request,
         "jobs": job_objects,
         "stats": stats,
-        "page_title": "Compare Jobs"
+        "page_title": "Compare Jobs",
+        "had_duplicates": had_duplicates
     })
 
 
