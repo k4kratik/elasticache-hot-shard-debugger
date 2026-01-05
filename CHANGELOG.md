@@ -6,6 +6,34 @@ All notable changes to the ElastiCache Hot Shard Debugger Web UI.
 
 ## Session: January 6, 2026
 
+### UI Consistency: SQL Query Page Layout
+
+#### Fixed
+- **Header alignment**: Restructured SQL Query page to match other pages (Timeline, Shards, etc.)
+- **Breadcrumb navigation**: Added consistent breadcrumb (Jobs → [Job Name] → SQL Query)
+- **Job selector position**: Moved job selector below header row for better visual hierarchy
+- **Navigation buttons**: Right-aligned with consistent styling
+
+#### Files Changed
+- `src/elasticache_monitor/web/templates/query.html`
+
+---
+
+### Feature: Share Button on Query & Analysis Pages
+
+#### Added
+- **Share button on SQL Query page**: Allows sharing current job selection
+- **Share button on Analysis page**: Allows sharing analysis view with filters
+- Both buttons create short URLs with fallback to full URLs
+- Hover tooltips explain the sharing feature
+- "Copied!" confirmation with checkmark animation
+
+#### Files Changed
+- `src/elasticache_monitor/web/templates/query.html`
+- `src/elasticache_monitor/web/templates/analysis.html`
+
+---
+
 ### Feature: Shareable URLs & Short Links (Grafana-style)
 
 #### Overview
@@ -19,9 +47,11 @@ Implemented a comprehensive URL state management system inspired by Grafana/Kiba
 - **Share Button**: Contextual share button near chart controls with hover tooltip
 - **Browser Navigation**: Back/forward buttons now work correctly with page state
 
-#### Pages with URL State
+#### Pages with URL State & Share Button
 - **Timeline Analysis**: group_by, granularity, chart_type, shards, filters
 - **Shard Distribution**: group_by, chart_type, filters
+- **SQL Query**: job_id selection
+- **Analysis**: current job view with filters
 
 #### How It Works
 1. **URL is the source of truth** - All state changes update the URL
