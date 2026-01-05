@@ -103,7 +103,10 @@ class MonitorShard(MetadataBase):
     cpu_user_end = Column(Float, nullable=True)  # used_cpu_user at end
     cpu_sys_delta = Column(Float, nullable=True)  # CPU sys consumed during monitoring
     cpu_user_delta = Column(Float, nullable=True)  # CPU user consumed during monitoring
-    
+
+    # AWS CloudWatch metrics
+    aws_engine_cpu_max = Column(Float, nullable=True)  # Maximum EngineCPUUtilization during monitoring
+
     # Relationship to parent job
     job = relationship("MonitorJob", back_populates="shards")
 

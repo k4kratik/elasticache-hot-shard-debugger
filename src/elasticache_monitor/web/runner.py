@@ -4,7 +4,7 @@ import logging
 import time
 import json
 import redis
-from datetime import datetime
+from datetime import datetime, timedelta
 from threading import Thread, Event, Lock
 from typing import Optional, List, Dict, Any
 from collections import Counter
@@ -85,7 +85,8 @@ class WebShardMonitor:
     """Monitor a single Redis shard and store results to job-specific database."""
     
     def __init__(self, job_id: str, shard_id: str, host: str, port: int, 
-                 password: str, shard_name: str, duration: int):
+                 password: str, shard_name: str, duration: int,
+                 cache_cluster_id: Optional[str] = None):
         self.job_id = job_id
         self.shard_id = shard_id
         self.host = host
@@ -93,6 +94,7 @@ class WebShardMonitor:
         self.password = password
         self.shard_name = shard_name
         self.duration = duration
+        self.cache_cluster_id = cache_cluster_id
         self.stop_event = Event()
         
         # Statistics
@@ -294,11 +296,36 @@ class WebShardMonitor:
             # Calculate CPU deltas
             cpu_sys_delta = None
             cpu_user_delta = None
+            aws_engine_cpu_max = None
+
             if self.cpu_sys_start is not None and self.cpu_sys_end is not None:
                 cpu_sys_delta = self.cpu_sys_end - self.cpu_sys_start
                 cpu_user_delta = self.cpu_user_end - self.cpu_user_start
                 logger.info(f"{self.shard_name}: CPU delta - sys: {cpu_sys_delta:.2f}s, user: {cpu_user_delta:.2f}s (total: {cpu_sys_delta + cpu_user_delta:.2f}s)")
-            
+
+            # Get AWS EngineCPUUtilization maximum for this shard
+            if self.start_time and actual_duration > 0 and self.cache_cluster_id:
+                logger.info(f"{self.shard_name}: Fetching AWS CPU for cache_cluster_id={self.cache_cluster_id}")
+                end_time = datetime.utcnow()
+                start_time = end_time - timedelta(seconds=actual_duration)
+
+                with get_db_context() as db:
+                    shard = db.query(MonitorShard).filter(MonitorShard.id == self.shard_id).first()
+                    if shard:
+                        from .cloudwatch import get_aws_engine_cpu_utilization
+                        result = get_aws_engine_cpu_utilization(
+                            shard.job.replication_group_id,
+                            self.cache_cluster_id,
+                            start_time,
+                            end_time,
+                            shard.job.region
+                        )
+                        if result and result.get('maximum') is not None:
+                            aws_engine_cpu_max = result['maximum']
+                            logger.info(f"{self.shard_name}: AWS EngineCPUUtilization max = {aws_engine_cpu_max:.2f}%")
+                        else:
+                            logger.info(f"{self.shard_name}: No AWS EngineCPUUtilization data found")
+
             with get_db_context() as db:
                 shard = db.query(MonitorShard).filter(MonitorShard.id == self.shard_id).first()
                 if shard:
@@ -316,6 +343,8 @@ class WebShardMonitor:
                     shard.memory_max_bytes = self.memory_max
                     shard.memory_peak_bytes = self.memory_peak
                     shard.memory_rss_bytes = self.memory_rss
+                    # Store AWS metrics
+                    shard.aws_engine_cpu_max = aws_engine_cpu_max
                     if self.error:
                         shard.error_message = self.error
             
@@ -418,30 +447,32 @@ def run_monitoring_job(job_id: str, password: str, profile: str = None):
     # Discover endpoints
     try:
         if endpoint_type == "primary":
-            endpoints = get_all_endpoints(replication_group_id, region, primary_only=True, profile=profile)
+            endpoints, error_msg = get_all_endpoints(replication_group_id, region, primary_only=True, profile=profile)
         else:
-            endpoints = get_replica_endpoints(replication_group_id, region, profile=profile)
-        
+            endpoints, error_msg = get_replica_endpoints(replication_group_id, region, profile=profile)
+
         if not endpoints:
+            error_message = error_msg or f"No {endpoint_type} endpoints found for {replication_group_id}"
             with get_db_context() as db:
                 job = db.query(MonitorJob).filter(MonitorJob.id == job_id).first()
                 if job:
                     job.status = JobStatus.failed
-                    job.error_message = f"No {endpoint_type} endpoints found for {replication_group_id}"
-            logger.error(f"No endpoints found for {replication_group_id}")
+                    job.error_message = error_message
+            logger.error(error_message)
             return
-        
+
         logger.info(f"Found {len(endpoints)} {endpoint_type} endpoints for {replication_group_id}:")
         for ep in endpoints:
             logger.info(f"  - {ep.get('shard', 'unknown')}: {ep.get('address')}:{ep.get('port')} ({ep.get('role', 'unknown')})")
-        
+
     except Exception as e:
+        error_message = f"Failed to discover endpoints: {str(e)}"
         with get_db_context() as db:
             job = db.query(MonitorJob).filter(MonitorJob.id == job_id).first()
             if job:
                 job.status = JobStatus.failed
-                job.error_message = f"Failed to discover endpoints: {str(e)}"
-        logger.error(f"Failed to discover endpoints: {e}")
+                job.error_message = error_message
+        logger.error(error_message)
         return
     
     # Create shard records in metadata DB
@@ -463,7 +494,8 @@ def run_monitoring_job(job_id: str, password: str, profile: str = None):
                 'id': shard_id,
                 'host': endpoint['address'],
                 'port': endpoint['port'],
-                'shard_name': endpoint['shard']
+                'shard_name': endpoint['shard'],
+                'cache_cluster_id': endpoint.get('cache_cluster_id'),
             })
     
     # Start monitoring threads
@@ -479,7 +511,8 @@ def run_monitoring_job(job_id: str, password: str, profile: str = None):
             port=shard_info['port'],
             password=password,
             shard_name=shard_info['shard_name'],
-            duration=duration
+            duration=duration,
+            cache_cluster_id=shard_info.get('cache_cluster_id')
         )
         monitors.append(monitor)
         logger.info(f"  Starting monitor for {shard_info['shard_name']} on {shard_info['host']}:{shard_info['port']}")

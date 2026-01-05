@@ -63,15 +63,15 @@
                     </div>
                     <div class="flex items-center gap-2">
                         <!-- Chart Type -->
-                        <div class="flex bg-slate-800 rounded-lg p-0.5">
-                            <button @click="chartType = 'bar'" 
+                        <div class="flex bg-slate-800 rounded-lg p-0.5" :class="loading && 'opacity-50 pointer-events-none'">
+                            <button @click="chartType = 'bar'; updateChart()" :disabled="loading"
                                     :class="chartType === 'bar' ? 'bg-cyan-600 text-white' : 'text-slate-400 hover:text-white'"
                                     class="p-2 rounded-md transition-colors" title="Bar Chart">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                                 </svg>
                             </button>
-                            <button @click="chartType = 'horizontalBar'" 
+                            <button @click="chartType = 'horizontalBar'; updateChart()" :disabled="loading"
                                     :class="chartType === 'horizontalBar' ? 'bg-cyan-600 text-white' : 'text-slate-400 hover:text-white'"
                                     class="p-2 rounded-md transition-colors" title="Horizontal Bar">
                                 <svg class="w-4 h-4 rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -82,20 +82,20 @@
                     </div>
                 </div>
                 
-                <!-- Loading State -->
-                <div x-show="loading" class="h-80 flex items-center justify-center">
-                    <div class="flex flex-col items-center gap-3">
-                        <svg class="animate-spin h-8 w-8 text-cyan-500" fill="none" viewBox="0 0 24 24">
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        <span class="text-slate-400 text-sm">Loading shard data...</span>
+                <!-- Chart Container - always visible -->
+                <div class="relative" :class="chartType === 'horizontalBar' ? 'h-auto min-h-[320px]' : 'h-80'">
+                    <!-- Loading Overlay - on top of chart -->
+                    <div x-show="loading" class="absolute inset-0 bg-slate-900/80 flex items-center justify-center z-10 rounded-lg">
+                        <div class="flex flex-col items-center gap-3">
+                            <svg class="animate-spin h-8 w-8 text-cyan-500" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <span class="text-slate-400 text-sm">Loading shard data...</span>
+                        </div>
                     </div>
-                </div>
-
-                <!-- Chart -->
-                <div x-show="!loading" :class="chartType === 'horizontalBar' ? 'h-auto' : 'h-80'">
-                    <canvas id="shardChart"></canvas>
+                    <!-- Canvas - always in DOM, use x-ref instead of id -->
+                    <canvas x-ref="shardCanvas"></canvas>
                 </div>
             </div>
 
@@ -149,34 +149,40 @@
         <!-- Sidebar Controls -->
         <div class="w-full lg:w-72 flex-shrink-0 space-y-4 order-1 lg:order-2">
             <!-- Group By -->
-            <div class="glass-card rounded-xl p-4">
-                <h4 class="text-sm font-semibold text-white mb-3">Stack By</h4>
-                <div class="space-y-2">
+            <div class="glass-card rounded-xl p-4" :class="loading && 'opacity-50 pointer-events-none'">
+                <h4 class="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+                    Stack By
+                    <svg x-show="loading" class="w-4 h-4 animate-spin text-cyan-400" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                </h4>
+                <div class="space-y-2" :class="loading && 'opacity-50 pointer-events-none'">
                     <label class="flex items-center gap-2 cursor-pointer p-2 rounded-lg hover:bg-slate-800/50 transition-colors"
                            :class="groupBy === 'command_signature' ? 'bg-cyan-600/20 border border-cyan-500/30' : ''">
-                        <input type="radio" value="command_signature" x-model="groupBy" @change="fetchData()" class="text-cyan-500 focus:ring-cyan-500 bg-slate-700 border-slate-600">
+                        <input type="radio" name="groupBy" value="command_signature" :checked="groupBy === 'command_signature'" @click="changeGroupBy('command_signature')" :disabled="loading" class="text-cyan-500 focus:ring-cyan-500 bg-slate-700 border-slate-600">
                         <span class="text-sm text-slate-300">Command Signature</span>
                     </label>
                     <label class="flex items-center gap-2 cursor-pointer p-2 rounded-lg hover:bg-slate-800/50 transition-colors"
                            :class="groupBy === 'command' ? 'bg-cyan-600/20 border border-cyan-500/30' : ''">
-                        <input type="radio" value="command" x-model="groupBy" @change="fetchData()" class="text-cyan-500 focus:ring-cyan-500 bg-slate-700 border-slate-600">
+                        <input type="radio" name="groupBy" value="command" :checked="groupBy === 'command'" @click="changeGroupBy('command')" :disabled="loading" class="text-cyan-500 focus:ring-cyan-500 bg-slate-700 border-slate-600">
                         <span class="text-sm text-slate-300">Command Type</span>
                     </label>
                     <label class="flex items-center gap-2 cursor-pointer p-2 rounded-lg hover:bg-slate-800/50 transition-colors"
                            :class="groupBy === 'key_pattern' ? 'bg-cyan-600/20 border border-cyan-500/30' : ''">
-                        <input type="radio" value="key_pattern" x-model="groupBy" @change="fetchData()" class="text-cyan-500 focus:ring-cyan-500 bg-slate-700 border-slate-600">
+                        <input type="radio" name="groupBy" value="key_pattern" :checked="groupBy === 'key_pattern'" @click="changeGroupBy('key_pattern')" :disabled="loading" class="text-cyan-500 focus:ring-cyan-500 bg-slate-700 border-slate-600">
                         <span class="text-sm text-slate-300">Key Pattern</span>
                     </label>
                     <label class="flex items-center gap-2 cursor-pointer p-2 rounded-lg hover:bg-slate-800/50 transition-colors"
                            :class="groupBy === 'client_ip' ? 'bg-cyan-600/20 border border-cyan-500/30' : ''">
-                        <input type="radio" value="client_ip" x-model="groupBy" @change="fetchData()" class="text-cyan-500 focus:ring-cyan-500 bg-slate-700 border-slate-600">
+                        <input type="radio" name="groupBy" value="client_ip" :checked="groupBy === 'client_ip'" @click="changeGroupBy('client_ip')" :disabled="loading" class="text-cyan-500 focus:ring-cyan-500 bg-slate-700 border-slate-600">
                         <span class="text-sm text-slate-300">Client IP</span>
                     </label>
                 </div>
             </div>
 
             <!-- Filters -->
-            <div class="glass-card rounded-xl p-4 overflow-visible relative z-30">
+            <div class="glass-card rounded-xl p-4 overflow-visible relative z-30" :class="loading && 'opacity-50 pointer-events-none'">
                 <div class="flex items-center justify-between mb-3">
                     <h4 class="text-sm font-semibold text-white">Filters</h4>
                     <button x-show="hasActiveFilters()" 
@@ -189,7 +195,7 @@
                     <div x-data="{ open: false, search: '' }" class="relative">
                         <label class="flex items-center justify-between text-xs font-medium text-slate-400 mb-1">
                             <span>Command <span x-show="availableOptions.commands.length" class="text-slate-500" x-text="'(' + availableOptions.commands.length + ')'"></span></span>
-                            <button x-show="filters.command" @click.stop="filters.command = ''; fetchFilterOptions(); fetchData()" class="text-cyan-400 hover:text-cyan-300">Clear</button>
+                            <button x-show="filters.command" @click.stop="clearFilter('command')" class="text-cyan-400 hover:text-cyan-300">Clear</button>
                         </label>
                         <button @click="open = !open; search = ''; $nextTick(() => $refs.cmdSearch.focus())" type="button"
                                 class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-left text-xs text-white flex items-center justify-between">
@@ -217,9 +223,9 @@
                     <div>
                         <label class="flex items-center justify-between text-xs font-medium text-slate-400 mb-1">
                             <span>Client IP</span>
-                            <button x-show="filters.client_ip" @click.stop="filters.client_ip = ''; fetchFilterOptions(); fetchData()" class="text-cyan-400 hover:text-cyan-300">Clear</button>
+                            <button x-show="filters.client_ip" @click.stop="clearFilter('client_ip')" class="text-cyan-400 hover:text-cyan-300">Clear</button>
                         </label>
-                        <input type="text" x-model="filters.client_ip" @input.debounce.500ms="fetchFilterOptions(); fetchData()"
+                        <input type="text" x-model="filters.client_ip" @input.debounce.500ms="onClientIpInput()"
                                placeholder="e.g., 10.0.1.50"
                                class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white placeholder-slate-500">
                     </div>
@@ -228,7 +234,7 @@
                     <div x-data="{ open: false, search: '' }" class="relative">
                         <label class="flex items-center justify-between text-xs font-medium text-slate-400 mb-1">
                             <span>Key Pattern <span x-show="availableOptions.patterns.length" class="text-slate-500" x-text="'(' + availableOptions.patterns.length + ')'"></span></span>
-                            <button x-show="filters.key_pattern" @click.stop="filters.key_pattern = ''; fetchFilterOptions(); fetchData()" class="text-cyan-400 hover:text-cyan-300">Clear</button>
+                            <button x-show="filters.key_pattern" @click.stop="clearFilter('key_pattern')" class="text-cyan-400 hover:text-cyan-300">Clear</button>
                         </label>
                         <button @click="open = !open; search = ''; $nextTick(() => $refs.patternSearch.focus())" type="button"
                                 class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-left text-xs text-white flex items-center justify-between truncate">
@@ -257,7 +263,7 @@
                     <div x-data="{ open: false, search: '' }" class="relative">
                         <label class="flex items-center justify-between text-xs font-medium text-slate-400 mb-1">
                             <span>Signature <span x-show="availableOptions.signatures.length" class="text-slate-500" x-text="'(' + availableOptions.signatures.length + ')'"></span></span>
-                            <button x-show="filters.command_signature" @click.stop="filters.command_signature = ''; fetchFilterOptions(); fetchData()" class="text-cyan-400 hover:text-cyan-300">Clear</button>
+                            <button x-show="filters.command_signature" @click.stop="clearFilter('command_signature')" class="text-cyan-400 hover:text-cyan-300">Clear</button>
                         </label>
                         <button @click="open = !open; search = ''; $nextTick(() => $refs.sigSearch.focus())" type="button"
                                 class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-left text-xs text-white flex items-center justify-between truncate">
@@ -285,18 +291,18 @@
             </div>
 
             <!-- Quick Actions -->
-            <div class="glass-card rounded-xl p-4 relative z-10">
+            <div class="glass-card rounded-xl p-4 relative z-10" :class="loading && 'opacity-50 pointer-events-none'">
                 <h4 class="text-sm font-semibold text-white mb-3">Quick Actions</h4>
                 <div class="space-y-2">
-                    <button @click="groupBy = 'command_signature'; clearAllFilters()"
+                    <button @click="quickAction('command_signature')"
                             class="w-full text-left px-3 py-2 text-xs bg-slate-800 hover:bg-cyan-600/20 rounded border border-slate-700 transition-colors flex items-center gap-2">
                         <span class="text-cyan-400">🔍</span> View by Signature
                     </button>
-                    <button @click="groupBy = 'command'; clearAllFilters()"
+                    <button @click="quickAction('command')"
                             class="w-full text-left px-3 py-2 text-xs bg-slate-800 hover:bg-cyan-600/20 rounded border border-slate-700 transition-colors flex items-center gap-2">
                         <span class="text-purple-400">⚡</span> View by Command Type
                     </button>
-                    <button @click="groupBy = 'client_ip'; clearAllFilters()"
+                    <button @click="quickAction('client_ip')"
                             class="w-full text-left px-3 py-2 text-xs bg-slate-800 hover:bg-cyan-600/20 rounded border border-slate-700 transition-colors flex items-center gap-2">
                         <span class="text-amber-400">🖥️</span> View by Client IP
                     </button>
@@ -357,10 +363,28 @@ function shardDistributionApp() {
             signatures: {{ signatures | tojson }}
         },
         optionsLoading: false,
+        requestId: 0,  // Track request order to prevent race conditions
 
         init() {
-            this.fetchData();
-            this.$watch('chartType', () => this.updateChart());
+            this.loading = true;
+            this.refresh();
+        },
+        
+        async changeGroupBy(newGroupBy) {
+            if (this.loading) return;
+            if (this.groupBy === newGroupBy) return;  // Same value, do nothing
+            this.loading = true;
+            this.groupBy = newGroupBy;
+            await this.refresh();
+        },
+        
+        async refresh() {
+            try {
+                await this.fetchFilterOptions();
+                await this.fetchData();
+            } finally {
+                this.loading = false;
+            }
         },
 
         groupByLabel() {
@@ -378,10 +402,19 @@ function shardDistributionApp() {
                    this.filters.key_pattern || this.filters.command_signature;
         },
 
-        clearAllFilters() {
+        async clearAllFilters() {
+            if (this.loading) return;
+            this.loading = true;
             this.filters = { command: '', client_ip: '', key_pattern: '', command_signature: '' };
-            this.fetchFilterOptions();
-            this.fetchData();
+            await this.refresh();
+        },
+
+        async quickAction(newGroupBy) {
+            if (this.loading) return;
+            this.loading = true;
+            this.groupBy = newGroupBy;
+            this.filters = { command: '', client_ip: '', key_pattern: '', command_signature: '' };
+            await this.refresh();
         },
 
         async fetchFilterOptions() {
@@ -410,13 +443,27 @@ function shardDistributionApp() {
         },
 
         async applyFilter(type, value) {
+            if (this.loading) return;
+            this.loading = true;
             this.filters[type] = value;
-            await this.fetchFilterOptions();
-            this.fetchData();
+            await this.refresh();
+        },
+
+        async clearFilter(filterName) {
+            if (this.loading) return;
+            this.loading = true;
+            this.filters[filterName] = '';
+            await this.refresh();
+        },
+
+        async onClientIpInput() {
+            if (this.loading) return;
+            this.loading = true;
+            await this.refresh();
         },
 
         async fetchData() {
-            this.loading = true;
+            const currentRequest = ++this.requestId;
             try {
                 const params = new URLSearchParams({
                     group_by: this.groupBy
@@ -430,14 +477,23 @@ function shardDistributionApp() {
                 const response = await fetch(`/api/jobs/${this.jobId}/shard-distribution-data?${params}`);
                 const data = await response.json();
                 
+                // Only apply if this is still the latest request
+                if (currentRequest !== this.requestId) return;
+                
                 this.rawData = data;
                 this.totalCommands = data.total_commands || 0;
                 this.processData(data);
-                this.updateChart();
+                
+                // Initialize chart once, then update in place
+                this.$nextTick(() => {
+                    if (currentRequest === this.requestId) {
+                        this.initChart();
+                        this.updateChart(currentRequest);
+                    }
+                });
             } catch (e) {
                 console.error('Failed to fetch data:', e);
             }
-            this.loading = false;
         },
 
         processData(data) {
@@ -502,15 +558,9 @@ function shardDistributionApp() {
             return colors;
         },
 
-        updateChart() {
-            const ctx = document.getElementById('shardChart');
-            if (!ctx) return;
-
-            if (this.chart) {
-                this.chart.destroy();
-            }
-
-            if (!this.rawData || !this.rawData.shards) return;
+        // Build datasets from raw data - creates new objects to avoid reference issues
+        buildDatasets() {
+            if (!this.rawData?.shards?.length) return { labels: [], datasets: [] };
 
             const shards = this.rawData.shards;
             const labels = shards.map(s => s.name);
@@ -531,15 +581,17 @@ function shardDistributionApp() {
                 .slice(0, 10)
                 .map(([key]) => key);
 
-            // Create datasets for stacked bar chart
+            // Create datasets for stacked bar chart - explicit object creation
             const colors = this.generateColors(topKeys.length + 1);
-            const datasets = topKeys.map((key, idx) => ({
-                label: key || '(none)',
-                data: shards.map(shard => shard.breakdown?.[key] || 0),
-                backgroundColor: colors[idx],
-                borderColor: colors[idx],
-                borderWidth: 1
-            }));
+            const datasets = topKeys.map((key, idx) => {
+                return {
+                    label: key || '(none)',
+                    data: shards.map(shard => shard.breakdown?.[key] || 0),
+                    backgroundColor: colors[idx],
+                    borderColor: colors[idx],
+                    borderWidth: 1
+                };
+            });
 
             // Add "Other" dataset
             const otherData = shards.map(shard => {
@@ -551,64 +603,100 @@ function shardDistributionApp() {
             if (otherData.some(v => v > 0)) {
                 datasets.push({
                     label: 'Other',
-                    data: otherData,
+                    data: otherData.slice(), // Clone
                     backgroundColor: 'rgb(100, 116, 139)',
                     borderColor: 'rgb(100, 116, 139)',
                     borderWidth: 1
                 });
             }
 
-            const isHorizontal = this.chartType === 'horizontalBar';
+            return { labels: labels.slice(), datasets }; // Clone labels
+        },
+
+        // Always recreate chart - safest approach
+        renderChart(requestId = this.requestId) {
+            if (requestId !== this.requestId) return;
             
-            this.chart = new Chart(ctx, {
-                type: 'bar',
-                data: { labels, datasets },
-                options: {
-                    indexAxis: isHorizontal ? 'y' : 'x',
-                    responsive: true,
-                    maintainAspectRatio: !isHorizontal,
-                    aspectRatio: isHorizontal ? undefined : 2,
-                    plugins: {
-                        legend: {
-                            display: true,
-                            position: 'bottom',
-                            labels: {
-                                color: 'rgb(148, 163, 184)',
-                                boxWidth: 12,
-                                padding: 15,
-                                font: { size: 11 }
-                            }
-                        },
-                        tooltip: {
-                            mode: 'index',
-                            intersect: false,
-                            backgroundColor: 'rgba(15, 23, 42, 0.95)',
-                            titleColor: 'rgb(248, 250, 252)',
-                            bodyColor: 'rgb(203, 213, 225)',
-                            borderColor: 'rgb(51, 65, 85)',
-                            borderWidth: 1,
-                            padding: 12,
-                            callbacks: {
-                                label: function(context) {
-                                    return `${context.dataset.label}: ${context.raw.toLocaleString()}`;
+            const canvas = this.$refs.shardCanvas;
+            if (!canvas) return;
+
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return;
+
+            // Destroy existing chart if any
+            if (this.chart) {
+                try { this.chart.destroy(); } catch (e) {}
+                this.chart = null;
+            }
+
+            const isHorizontal = this.chartType === 'horizontalBar';
+            const { labels, datasets } = this.buildDatasets();
+
+            if (!datasets.length) return;
+
+            try {
+                this.chart = new Chart(ctx, {
+                    type: 'bar',
+                    data: { labels, datasets },
+                    options: {
+                        indexAxis: isHorizontal ? 'y' : 'x',
+                        responsive: true,
+                        maintainAspectRatio: !isHorizontal,
+                        aspectRatio: isHorizontal ? undefined : 2,
+                        animation: false,
+                        plugins: {
+                            legend: {
+                                display: true,
+                                position: 'bottom',
+                                labels: {
+                                    color: 'rgb(148, 163, 184)',
+                                    boxWidth: 12,
+                                    padding: 15,
+                                    font: { size: 11 }
+                                }
+                            },
+                            tooltip: {
+                                mode: 'index',
+                                intersect: false,
+                                backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                                titleColor: 'rgb(248, 250, 252)',
+                                bodyColor: 'rgb(203, 213, 225)',
+                                borderColor: 'rgb(51, 65, 85)',
+                                borderWidth: 1,
+                                padding: 12,
+                                callbacks: {
+                                    label: function(context) {
+                                        return `${context.dataset.label}: ${context.raw.toLocaleString()}`;
+                                    }
                                 }
                             }
-                        }
-                    },
-                    scales: {
-                        x: {
-                            stacked: true,
-                            grid: { color: 'rgba(51, 65, 85, 0.5)' },
-                            ticks: { color: 'rgb(148, 163, 184)', font: { size: 11 } }
                         },
-                        y: {
-                            stacked: true,
-                            grid: { color: 'rgba(51, 65, 85, 0.5)' },
-                            ticks: { color: 'rgb(148, 163, 184)', font: { size: 11 } }
+                        scales: {
+                            x: {
+                                stacked: true,
+                                grid: { color: 'rgba(51, 65, 85, 0.5)' },
+                                ticks: { color: 'rgb(148, 163, 184)', font: { size: 11 } }
+                            },
+                            y: {
+                                stacked: true,
+                                grid: { color: 'rgba(51, 65, 85, 0.5)' },
+                                ticks: { color: 'rgb(148, 163, 184)', font: { size: 11 } }
+                            }
                         }
                     }
-                }
-            });
+                });
+            } catch (e) {
+                console.log('Chart creation failed:', e);
+            }
+        },
+
+        // Aliases for compatibility
+        initChart() {
+            // No-op, renderChart handles everything
+        },
+
+        updateChart(requestId = this.requestId) {
+            this.renderChart(requestId);
         }
     };
 }

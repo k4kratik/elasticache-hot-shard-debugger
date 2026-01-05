@@ -4,6 +4,80 @@ All notable changes to the ElastiCache Hot Shard Debugger Web UI.
 
 ---
 
+## Session: January 6, 2026
+
+### Critical Bug Fix: Chart.js Crash on Rapid Clicking
+
+#### Problem
+- Rapidly clicking Group By / Stack By buttons on Timeline and Shard Distribution pages caused Chart.js crashes
+- Error: `Uncaught TypeError: Cannot read properties of null (reading 'getContext')`
+- Also caused `RangeError: Maximum call stack size exceeded` errors
+
+#### Root Cause
+- Async race conditions where multiple fetch requests completed out of order
+- Chart.js `destroy()` + `new Chart()` cycles conflicting during rapid interactions
+- Data mutations during chart updates causing infinite loops
+
+#### Solution
+- **Simplified chart rendering**: Always recreate chart on data change (no in-place updates)
+- **Clone data before rendering**: Use `.slice()` on arrays to prevent reference issues
+- **Request ID tracking**: Discard stale async responses using `requestId` counter
+- **Loading guards**: Prevent new actions while previous request is in progress
+- **Disabled animations**: Set `animation: false` for stability
+- **Single click handler**: Bind chart click handler only once per canvas lifetime
+
+#### Files Changed
+- `src/elasticache_monitor/web/templates/timeline.html`
+- `src/elasticache_monitor/web/templates/shard_distribution.html`
+
+### Feature: AWS CloudWatch CPU Integration
+
+#### Added
+- **AWS EngineCPUUtilization metric**: Fetches CPU utilization from CloudWatch after monitoring completes
+- Shows AWS-reported CPU % alongside Redis INFO CPU metrics on shard cards
+- Helps correlate Redis-reported CPU with AWS infrastructure view
+- Created dedicated `cloudwatch.py` module for AWS metric fetching
+
+#### Technical Details
+- Queries `AWS/ElastiCache` namespace for `EngineCPUUtilization` metric
+- Uses 1-minute granularity with ±2 minute time window buffer
+- Returns both average and maximum CPU values from the monitoring period
+- Gracefully handles missing data or AWS API errors
+
+#### Files Changed
+- `src/elasticache_monitor/web/cloudwatch.py` (new file)
+- `src/elasticache_monitor/web/runner.py` (calls CloudWatch after monitoring)
+- `src/elasticache_monitor/web/models.py` (added `aws_engine_cpu_max` column)
+- `src/elasticache_monitor/web/templates/job_detail.html` (displays AWS CPU %)
+
+### Other Recent Features & Fixes
+
+#### New Pages
+- **Shard Distribution Page** (`/jobs/{id}/shard-distribution`): Compare traffic across shards with stacked bar charts
+- **About Page** (`/about`): Project info, author details, and links
+
+#### Job Management
+- **Job Cancellation**: Cancel running jobs with confirmation modal
+- **Jobs Pagination**: Navigate through jobs list with page controls (min 10 per page)
+- **Duplicate Job Prevention**: Compare page prevents selecting same job twice
+
+#### UI/UX Improvements
+- **Local Time Display**: All timestamps converted from UTC to user's local timezone
+- **SQL Syntax Highlighting**: Prism.js integration for better SQL readability in Query page
+- **Smart Filter Options**: Filter dropdowns only show relevant options based on current selections
+- **Version Display**: Version shown in navbar, footer, and CLI startup
+
+#### Rebranding
+- **Redis → ElastiCache**: Renamed throughout UI to "ElastiCache Monitor"
+- **Redis/Valkey**: References now say "Redis/Valkey" where appropriate
+- **Database Renamed**: `redis_monitor.db` → `elasticache_monitor.db` (with backward compatibility)
+
+#### CLI Improvements
+- **Dynamic Version**: Version read from package metadata at runtime (no hardcoding)
+- **Version in Startup**: Shows version when running `elasticache-monitor` CLI
+
+---
+
 ## Session: January 3, 2026
 
 ### UI Polish & Production Readiness

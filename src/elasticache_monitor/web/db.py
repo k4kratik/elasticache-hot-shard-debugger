@@ -86,6 +86,8 @@ def _migrate_metadata_db_schema() -> None:
         ("cpu_user_end", "REAL"),
         ("cpu_sys_delta", "REAL"),
         ("cpu_user_delta", "REAL"),
+        # AWS CloudWatch metrics
+        ("aws_engine_cpu_max", "REAL"),
     ]
     
     try:

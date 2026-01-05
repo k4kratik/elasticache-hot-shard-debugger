@@ -11,7 +11,8 @@ function queryPage() {
         runningQuery: null,
         
         init() {
-            this.updateHighlight();
+            // Ensure highlighting runs after DOM is ready
+            this.$nextTick(() => this.updateHighlight());
         },
         
         runQuery(name, form) {

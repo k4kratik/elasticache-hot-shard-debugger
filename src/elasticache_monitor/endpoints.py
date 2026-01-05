@@ -6,14 +6,14 @@ from colorama import Fore
 
 def get_replica_endpoints(cluster_id, region='ap-south-1', profile=None):
     """Get all replica endpoints from ElastiCache replication group"""
-    
+
     import os
-    
+
     print(f"{Fore.CYAN}🔍 Discovering replica endpoints from AWS...")
-    
+
     # Use explicit profile, or fall back to AWS_PROFILE env var
     effective_profile = profile or os.getenv('AWS_PROFILE')
-    
+
     if effective_profile:
         print(f"{Fore.CYAN}   Using AWS profile: {effective_profile}")
         session = boto3.Session(profile_name=effective_profile)
@@ -21,42 +21,46 @@ def get_replica_endpoints(cluster_id, region='ap-south-1', profile=None):
     else:
         # Use default credentials chain
         client = boto3.client('elasticache', region_name=region)
-    
+
     try:
         print(f"{Fore.CYAN}   Querying replication group: {cluster_id}...")
         response = client.describe_replication_groups(
             ReplicationGroupId=cluster_id
         )
-        
+
         print(f"{Fore.CYAN}   Found {len(response.get('ReplicationGroups', []))} replication group(s)")
-        
+
         if not response['ReplicationGroups']:
-            return []
-        
+            error_msg = f"No replication group found with ID '{cluster_id}'"
+            print(f"{Fore.RED}❌ {error_msg}")
+            return [], error_msg
+
         replication_group = response['ReplicationGroups'][0]
         endpoints = []
-        
+
         node_groups = replication_group.get('NodeGroups', [])
         print(f"{Fore.CYAN}   Found {len(node_groups)} shard(s)")
-        
+
         # Get node groups (shards)
         for node_group in node_groups:
             node_group_id = node_group.get('NodeGroupId', 'unknown')
             members = node_group.get('NodeGroupMembers', [])
-            
+
             # Get replica endpoints only
             for member in members:
                 # Check if we have endpoint info directly
                 current_role = member.get('CurrentRole', '').lower()
                 read_endpoint = member.get('ReadEndpoint', {})
-                
+
                 if current_role and current_role != 'primary' and read_endpoint:
                     # Direct endpoint info available
+                    cache_cluster_id = member.get('CacheClusterId')
                     endpoints.append({
                         'address': read_endpoint.get('Address'),
                         'port': read_endpoint.get('Port', 6379),
                         'shard': node_group_id,
-                        'role': current_role
+                        'role': current_role,
+                        'cache_cluster_id': cache_cluster_id,
                     })
                 else:
                     # No direct endpoint - need to query cache cluster
@@ -69,11 +73,11 @@ def get_replica_endpoints(cluster_id, region='ap-south-1', profile=None):
                             )
                             if cluster_resp['CacheClusters']:
                                 cluster = cluster_resp['CacheClusters'][0]
-                                
+
                                 # Check if this is a replica
                                 # For cluster-mode: role might not be exposed
                                 replication_group_role = cluster.get('ReplicationGroupRole', '').lower()
-                                
+
                                 # Heuristic: In cluster-mode with multiple nodes per shard,
                                 # typically XXX-001 is primary, XXX-002+ are replicas
                                 is_replica = False
@@ -84,7 +88,7 @@ def get_replica_endpoints(cluster_id, region='ap-south-1', profile=None):
                                     # Check if cluster ID ends with -002, -003, etc (not -001)
                                     if cache_cluster_id.endswith(('-002', '-003', '-004', '-005')):
                                         is_replica = True
-                                
+
                                 if is_replica:
                                     # Get endpoint from cache nodes
                                     cache_nodes = cluster.get('CacheNodes', [])
@@ -95,33 +99,41 @@ def get_replica_endpoints(cluster_id, region='ap-south-1', profile=None):
                                                 'address': endpoint.get('Address'),
                                                 'port': endpoint.get('Port', 6379),
                                                 'shard': node_group_id,
-                                                'role': 'replica'
+                                                'role': 'replica',
+                                                'cache_cluster_id': cache_cluster_id,
                                             })
                         except Exception as query_err:
                             # Skip this member if we can't query it
                             print(f"{Fore.RED}   Error querying {cache_cluster_id}: {query_err}")
-        
+
+        if not endpoints:
+            error_msg = f"No replica endpoints found for {cluster_id}"
+            print(f"{Fore.RED}❌ {error_msg}")
+            return [], error_msg
+
         print(f"{Fore.GREEN}   ✓ Found {len(endpoints)} replica endpoint(s)")
-        return endpoints
-    
-    except client.exceptions.ReplicationGroupNotFoundFault:
-        print(f"{Fore.RED}❌ Replication group not found: {cluster_id}")
-        return []
+        return endpoints, None
+
+    except client.exceptions.ReplicationGroupNotFoundFault as e:
+        error_msg = f"Replication group not found: {cluster_id}"
+        print(f"{Fore.RED}❌ {error_msg}")
+        return [], error_msg
     except Exception as e:
-        print(f"{Fore.RED}❌ Error retrieving endpoints: {e}")
-        return []
+        error_msg = f"Error retrieving endpoints: {str(e)}"
+        print(f"{Fore.RED}❌ {error_msg}")
+        return [], error_msg
 
 
 def get_all_endpoints(cluster_id, region='ap-south-1', primary_only=False, replica_only=False, profile=None):
     """Get endpoints with filtering options"""
-    
+
     import os
-    
+
     print(f"{Fore.CYAN}🔍 Discovering {'PRIMARY' if primary_only else 'ALL'} endpoints from AWS...")
-    
+
     # Use explicit profile, or fall back to AWS_PROFILE env var
     effective_profile = profile or os.getenv('AWS_PROFILE')
-    
+
     if effective_profile:
         print(f"{Fore.CYAN}   Using AWS profile: {effective_profile}")
         session = boto3.Session(profile_name=effective_profile)
@@ -129,34 +141,36 @@ def get_all_endpoints(cluster_id, region='ap-south-1', primary_only=False, repli
     else:
         # Use default credentials chain
         client = boto3.client('elasticache', region_name=region)
-    
+
     try:
         print(f"{Fore.CYAN}   Querying replication group: {cluster_id}...")
         response = client.describe_replication_groups(
             ReplicationGroupId=cluster_id
         )
-        
+
         print(f"{Fore.CYAN}   Found {len(response.get('ReplicationGroups', []))} replication group(s)")
-        
+
         if not response['ReplicationGroups']:
-            return []
-        
+            error_msg = f"No replication group found with ID '{cluster_id}'"
+            print(f"{Fore.RED}❌ {error_msg}")
+            return [], error_msg
+
         replication_group = response['ReplicationGroups'][0]
         endpoints = []
-        
+
         node_groups = replication_group.get('NodeGroups', [])
         print(f"{Fore.CYAN}   Found {len(node_groups)} shard(s)")
-        
+
         for node_group in node_groups:
             node_group_id = node_group.get('NodeGroupId', 'unknown')
             members = node_group.get('NodeGroupMembers', [])
-            
+
             # Check all members to get endpoints
             for member in members:
                 current_role = member.get('CurrentRole', '').lower()
                 read_endpoint = member.get('ReadEndpoint', {})
                 cache_cluster_id = member.get('CacheClusterId', '')
-                
+
                 # If endpoint info not available directly, query the cache cluster
                 if not read_endpoint or not read_endpoint.get('Address'):
                     if cache_cluster_id:
@@ -168,12 +182,12 @@ def get_all_endpoints(cluster_id, region='ap-south-1', primary_only=False, repli
                             if cluster_resp['CacheClusters']:
                                 cluster = cluster_resp['CacheClusters'][0]
                                 cache_nodes = cluster.get('CacheNodes', [])
-                                
+
                                 if cache_nodes:
                                     node_endpoint = cache_nodes[0].get('Endpoint', {})
                                     if node_endpoint and node_endpoint.get('Address'):
                                         read_endpoint = node_endpoint
-                                
+
                                 # Try to determine role from cluster ID pattern
                                 if not current_role:
                                     # Heuristic: -001 is primary, -002+ are replicas
@@ -183,11 +197,11 @@ def get_all_endpoints(cluster_id, region='ap-south-1', primary_only=False, repli
                                         current_role = 'replica'
                         except Exception as e:
                             print(f"{Fore.RED}   Error querying cluster {cache_cluster_id}: {e}")
-                
+
                 # Try to get endpoint
                 endpoint_address = read_endpoint.get('Address') if read_endpoint else None
                 endpoint_port = read_endpoint.get('Port', 6379) if read_endpoint else 6379
-                
+
                 # If we want primaries and this is primary
                 if not replica_only and current_role == 'primary':
                     if endpoint_address:
@@ -195,7 +209,8 @@ def get_all_endpoints(cluster_id, region='ap-south-1', primary_only=False, repli
                             'address': endpoint_address,
                             'port': endpoint_port,
                             'role': 'primary',
-                            'shard': node_group_id
+                            'shard': node_group_id,
+                            'cache_cluster_id': cache_cluster_id,
                         })
                 # If we want replicas/readers and this is not primary
                 elif not primary_only and current_role != 'primary':
@@ -204,16 +219,24 @@ def get_all_endpoints(cluster_id, region='ap-south-1', primary_only=False, repli
                             'address': endpoint_address,
                             'port': endpoint_port,
                             'role': current_role,
-                            'shard': node_group_id
+                            'shard': node_group_id,
+                            'cache_cluster_id': cache_cluster_id,
                         })
-        
-        print(f"{Fore.GREEN}   ✓ Found {len(endpoints)} endpoint(s)")
-        return endpoints
-    
-    except client.exceptions.ReplicationGroupNotFoundFault:
-        print(f"{Fore.RED}❌ Replication group not found: {cluster_id}")
-        return []
-    except Exception as e:
-        print(f"{Fore.RED}❌ Error retrieving endpoints: {e}")
-        return []
 
+        if not endpoints:
+            endpoint_type = "primary" if primary_only else "replica" if replica_only else "any"
+            error_msg = f"No {endpoint_type} endpoints found for {cluster_id}"
+            print(f"{Fore.RED}❌ {error_msg}")
+            return [], error_msg
+
+        print(f"{Fore.GREEN}   ✓ Found {len(endpoints)} endpoint(s)")
+        return endpoints, None
+
+    except client.exceptions.ReplicationGroupNotFoundFault as e:
+        error_msg = f"Replication group not found: {cluster_id}"
+        print(f"{Fore.RED}❌ {error_msg}")
+        return [], error_msg
+    except Exception as e:
+        error_msg = f"Error retrieving endpoints: {str(e)}"
+        print(f"{Fore.RED}❌ {error_msg}")
+        return [], error_msg

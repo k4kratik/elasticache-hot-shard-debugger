@@ -19,6 +19,7 @@ from elasticache_monitor import __version__
 from .db import init_db, get_db, get_job_db_context, delete_job_db, job_db_exists, get_job_db_path
 from .models import MonitorJob, MonitorShard, RedisCommand, KeySizeCache, JobStatus, ShardStatus
 from .runner import run_monitoring_job, sample_key_sizes, cancel_job, is_job_running
+from ..endpoints import get_replica_endpoints, get_all_endpoints
 
 # Setup logging
 logging.basicConfig(
@@ -208,7 +209,30 @@ async def create_job(
             "error": "Redis/Valkey password is required",
             "recent_jobs": db.query(MonitorJob).order_by(desc(MonitorJob.created_at)).limit(5).all()
         })
-    
+
+    # Validate endpoints before creating job
+    try:
+        if endpoint_type == "primary":
+            endpoints, error_msg = get_all_endpoints(replication_group_id, region, primary_only=True)
+        else:
+            endpoints, error_msg = get_replica_endpoints(replication_group_id, region)
+
+        if not endpoints:
+            return templates.TemplateResponse("index.html", {
+                "request": request,
+                "page_title": "ElastiCache Hot Shard Debugger",
+                "error": error_msg or f"No {endpoint_type} endpoints found for {replication_group_id}",
+                "recent_jobs": db.query(MonitorJob).order_by(desc(MonitorJob.created_at)).limit(5).all()
+            })
+
+    except Exception as e:
+        return templates.TemplateResponse("index.html", {
+            "request": request,
+            "page_title": "ElastiCache Hot Shard Debugger",
+            "error": f"Failed to discover endpoints: {str(e)}",
+            "recent_jobs": db.query(MonitorJob).order_by(desc(MonitorJob.created_at)).limit(5).all()
+        })
+
     # Create job
     job_id = str(uuid.uuid4())
     job = MonitorJob(
@@ -227,13 +251,13 @@ async def create_job(
     )
     db.add(job)
     db.commit()
-    
+
     logger.info(f"Created job {job_id} for {replication_group_id}")
-    
+
     # Start background monitoring task
     # Note: Password is passed directly (not stored in DB for security)
     background_tasks.add_task(run_monitoring_job, job_id, password)
-    
+
     return RedirectResponse(url=f"/jobs/{job_id}", status_code=303)
 
 
@@ -626,6 +650,8 @@ async def get_job_status(job_id: str, db: Session = Depends(get_db)):
         cpu_total = None
         cpu_pct = None  # CPU utilization as percentage of wall time
         cpu_per_1k = None  # CPU ms per 1000 commands
+        aws_engine_cpu = None  # AWS EngineCPUUtilization
+        
         if shard.cpu_sys_delta is not None and shard.cpu_user_delta is not None:
             cpu_total = shard.cpu_sys_delta + shard.cpu_user_delta
             # CPU % = (cpu_seconds / duration_seconds) * 100
@@ -635,12 +661,14 @@ async def get_job_status(job_id: str, db: Session = Depends(get_db)):
             if shard.command_count > 0:
                 cpu_per_1k = (cpu_total * 1000) / (shard.command_count / 1000)
         
+
+        
         # Calculate memory usage percentage
         memory_pct = None
         if shard.memory_used_bytes and shard.memory_max_bytes and shard.memory_max_bytes > 0:
             memory_pct = (shard.memory_used_bytes / shard.memory_max_bytes) * 100
         
-        shards_status.append({
+        shard_data = {
             "shard_name": shard.shard_name,
             "host": shard.host,
             "port": shard.port,
@@ -660,9 +688,11 @@ async def get_job_status(job_id: str, db: Session = Depends(get_db)):
             "cpu_sys_delta": shard.cpu_sys_delta,
             "cpu_user_delta": shard.cpu_user_delta,
             "cpu_total": cpu_total,
-            "cpu_pct": cpu_pct,  # CPU utilization %
-            "cpu_per_1k": cpu_per_1k  # CPU ms per 1K commands
-        })
+            "cpu_pct": cpu_pct,  # Redis CPU utilization %
+            "cpu_per_1k": cpu_per_1k,  # CPU ms per 1K commands
+            "aws_engine_cpu_max": shard.aws_engine_cpu_max,  # AWS EngineCPUUtilization max %
+        }
+        shards_status.append(shard_data)
     
     # Calculate actual commands from job-specific database for accuracy
     actual_total = 0
@@ -1769,4 +1799,3 @@ async def get_filter_options(
             "shards": shards,
             "matching_count": matching_count
         })
-
