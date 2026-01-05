@@ -77,23 +77,67 @@
             <div class="glass-card rounded-xl p-6 mb-6">
                 <div class="flex items-center justify-between mb-4">
                     <h3 class="text-lg font-semibold text-white">Command Traffic Over Time</h3>
-                    <div class="flex items-center gap-2">
+                    <div class="flex items-center gap-3">
+                        <!-- Chart type buttons -->
                         <div class="flex rounded-lg bg-slate-800/50 p-0.5" :class="loading && 'opacity-50 pointer-events-none'">
-                            <button @click="chartType = 'bar'; $nextTick(() => updateChart())" :disabled="loading"
+                            <button @click="changeChartType('bar')" :disabled="loading"
                                     :class="chartType === 'bar' ? 'bg-purple-600 text-white' : 'text-slate-400 hover:text-white'"
                                     class="px-3 py-1.5 text-xs font-medium rounded-md transition-all">
                                 <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/></svg>
                             </button>
-                            <button @click="chartType = 'line'; $nextTick(() => updateChart())" :disabled="loading"
+                            <button @click="changeChartType('line')" :disabled="loading"
                                     :class="chartType === 'line' ? 'bg-purple-600 text-white' : 'text-slate-400 hover:text-white'"
                                     class="px-3 py-1.5 text-xs font-medium rounded-md transition-all">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/></svg>
                             </button>
-                            <button @click="chartType = 'area'; $nextTick(() => updateChart())" :disabled="loading"
+                            <button @click="changeChartType('area')" :disabled="loading"
                                     :class="chartType === 'area' ? 'bg-purple-600 text-white' : 'text-slate-400 hover:text-white'"
                                     class="px-3 py-1.5 text-xs font-medium rounded-md transition-all">
                                 <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M3 3a1 1 0 000 2v8a2 2 0 002 2h2.586l-1.293 1.293a1 1 0 101.414 1.414L10 15.414l2.293 2.293a1 1 0 001.414-1.414L12.414 15H15a2 2 0 002-2V5a1 1 0 100-2H3zm11.707 4.707a1 1 0 00-1.414-1.414L10 9.586 8.707 8.293a1 1 0 00-1.414 0l-2 2a1 1 0 101.414 1.414L8 10.414l1.293 1.293a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
                             </button>
+                        </div>
+                        <!-- Share button -->
+                        <div x-data="{ sharing: false, copied: false, showTooltip: false }" class="relative">
+                            <button 
+                                @click="async () => { 
+                                    sharing = true; 
+                                    showTooltip = false;
+                                    const result = await UrlState.copyUrl(true); 
+                                    sharing = false; 
+                                    if (result.copied) { 
+                                        copied = true; 
+                                        setTimeout(() => copied = false, 2000); 
+                                    } 
+                                }"
+                                @mouseenter="showTooltip = true"
+                                @mouseleave="showTooltip = false"
+                                :disabled="sharing"
+                                class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800/50 text-slate-300 hover:text-white hover:bg-slate-700 transition-all disabled:opacity-50">
+                                <svg x-show="!sharing && !copied" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                                </svg>
+                                <svg x-show="sharing" x-cloak class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                                </svg>
+                                <svg x-show="copied" x-cloak class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                </svg>
+                                <span x-text="copied ? 'Copied!' : 'Share'"></span>
+                            </button>
+                            <!-- Tooltip -->
+                            <div x-show="showTooltip && !sharing && !copied" 
+                                 x-cloak
+                                 x-transition:enter="transition ease-out duration-150"
+                                 x-transition:enter-start="opacity-0 translate-y-1"
+                                 x-transition:enter-end="opacity-100 translate-y-0"
+                                 class="absolute top-full right-0 mt-2 w-56 z-50">
+                                <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-3 text-xs">
+                                    <p class="text-white font-medium mb-1">Share this view</p>
+                                    <p class="text-slate-400 leading-relaxed">Creates a short URL with your current filters, groupings, and chart settings.</p>
+                                    <div class="absolute -top-1.5 right-4 w-3 h-3 bg-slate-800 border-l border-t border-slate-700 rotate-45"></div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -229,7 +273,7 @@
         </div>
 
         <!-- Sidebar Controls (AWS Cost Explorer style) -->
-        <div class="w-full lg:w-72 flex-shrink-0 space-y-4 order-1 lg:order-2">
+        <div class="w-full lg:w-64 flex-shrink-0 space-y-4 order-1 lg:order-2">
             <!-- Granularity -->
             <div class="glass-card rounded-xl p-4" :class="loading && 'opacity-50 pointer-events-none'">
                 <h4 class="text-sm font-semibold text-white mb-3">Granularity</h4>
@@ -517,6 +561,89 @@ function timelineApp() {
         },
         optionsLoading: false,
 
+        // URL State Schema for shareable links
+        stateSchema: {
+            groupBy: { param: 'group_by', default: 'command_signature' },
+            granularity: { param: 'granularity', default: 5, type: 'number' },
+            chartType: { param: 'chart_type', default: 'bar' },
+            selectedShards: { param: 'shards', array: true },
+            'filters.command': { param: 'filter_command' },
+            'filters.client_ip': { param: 'filter_client_ip' },
+            'filters.key_pattern': { param: 'filter_key_pattern' },
+            'filters.command_signature': { param: 'filter_signature' }
+        },
+
+        // Custom hydrate for nested filters object
+        hydrateFromUrl() {
+            const params = new URLSearchParams(window.location.search);
+            
+            // Simple properties
+            const groupBy = params.get('group_by');
+            if (groupBy) this.groupBy = groupBy;
+            
+            const granularity = params.get('granularity');
+            if (granularity) this.granularity = parseInt(granularity, 10) || 5;
+            
+            const chartType = params.get('chart_type');
+            if (chartType) this.chartType = chartType;
+            
+            const shards = params.get('shards');
+            if (shards) this.selectedShards = shards.split(',').filter(s => s);
+            
+            // Nested filters
+            const filterCommand = params.get('filter_command');
+            if (filterCommand) this.filters.command = filterCommand;
+            
+            const filterClientIp = params.get('filter_client_ip');
+            if (filterClientIp) this.filters.client_ip = filterClientIp;
+            
+            const filterKeyPattern = params.get('filter_key_pattern');
+            if (filterKeyPattern) this.filters.key_pattern = filterKeyPattern;
+            
+            const filterSignature = params.get('filter_signature');
+            if (filterSignature) this.filters.command_signature = filterSignature;
+        },
+
+        // Custom sync for nested filters object
+        syncToUrl(push = true) {
+            const params = new URLSearchParams();
+            
+            // Only add non-default values
+            if (this.groupBy && this.groupBy !== 'command_signature') {
+                params.set('group_by', this.groupBy);
+            }
+            if (this.granularity && this.granularity !== 5) {
+                params.set('granularity', this.granularity);
+            }
+            if (this.chartType && this.chartType !== 'bar') {
+                params.set('chart_type', this.chartType);
+            }
+            if (this.selectedShards.length > 0) {
+                params.set('shards', this.selectedShards.join(','));
+            }
+            if (this.filters.command) {
+                params.set('filter_command', this.filters.command);
+            }
+            if (this.filters.client_ip) {
+                params.set('filter_client_ip', this.filters.client_ip);
+            }
+            if (this.filters.key_pattern) {
+                params.set('filter_key_pattern', this.filters.key_pattern);
+            }
+            if (this.filters.command_signature) {
+                params.set('filter_signature', this.filters.command_signature);
+            }
+            
+            const queryString = params.toString();
+            const url = queryString ? `${location.pathname}?${queryString}` : location.pathname;
+            
+            if (push) {
+                history.pushState({ urlState: true }, '', url);
+            } else {
+                history.replaceState({ urlState: true }, '', url);
+            }
+        },
+
         get groupByLabel() {
             const labels = {
                 'command_signature': 'Signature',
@@ -545,12 +672,21 @@ function timelineApp() {
             this.selectedShards = [];
             this.filters = { command: '', client_ip: '', key_pattern: '', command_signature: '' };
             this.filterValue = '';
+            this.syncToUrl();
             await this.refresh();
         },
 
         init() {
             this.loading = true;
+            // Hydrate state from URL on init
+            this.hydrateFromUrl();
             this.refresh();
+            
+            // Handle browser back/forward navigation
+            window.addEventListener('popstate', () => {
+                this.hydrateFromUrl();
+                this.refresh();
+            });
         },
         
         async changeGroupBy(newGroupBy) {
@@ -558,13 +694,22 @@ function timelineApp() {
             if (this.groupBy === newGroupBy) return;
             this.loading = true;
             this.groupBy = newGroupBy;
+            this.syncToUrl();
             await this.refresh();
         },
 
         async changeGranularity() {
             if (this.loading) return;
             this.loading = true;
+            this.syncToUrl();
             await this.refresh();
+        },
+
+        changeChartType(type) {
+            if (this.chartType === type) return;
+            this.chartType = type;
+            this.syncToUrl(false);  // replaceState, don't push to history
+            this.$nextTick(() => this.updateChart());
         },
         
         async refresh() {
@@ -607,6 +752,7 @@ function timelineApp() {
             if (this.loading) return;
             this.loading = true;
             this.filters[type] = value;
+            this.syncToUrl();
             await this.refresh();
         },
 
@@ -618,6 +764,7 @@ function timelineApp() {
             } else {
                 this.selectedShards.push(shard);
             }
+            this.syncToUrl();
             await this.refresh();
         },
 
@@ -625,6 +772,7 @@ function timelineApp() {
             if (this.loading) return;
             this.loading = true;
             this.selectedShards = [];
+            this.syncToUrl();
             await this.refresh();
         },
 
@@ -632,6 +780,7 @@ function timelineApp() {
             if (this.loading) return;
             this.loading = true;
             this.filters[filterName] = '';
+            this.syncToUrl();
             await this.refresh();
         },
 

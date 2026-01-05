@@ -68,6 +68,16 @@ class MonitorJob(MetadataBase):
     shards = relationship("MonitorShard", back_populates="job", cascade="all, delete-orphan")
 
 
+class ShortUrl(MetadataBase):
+    """Short URL mappings for sharing page states."""
+    __tablename__ = "short_urls"
+
+    id = Column(String, primary_key=True)  # nanoid/base62 short code
+    full_url = Column(Text, nullable=False, index=True)  # Full path + query string
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    hit_count = Column(Integer, default=0)
+
+
 class MonitorShard(MetadataBase):
     """Per-shard monitoring status and stats."""
     __tablename__ = "monitor_shards"

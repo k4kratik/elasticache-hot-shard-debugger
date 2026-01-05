@@ -53,25 +53,25 @@
     <!-- Main Content -->
     <div class="flex flex-col lg:flex-row gap-6">
         <!-- Chart Area -->
-        <div class="flex-1 space-y-4 order-2 lg:order-1">
+        <div class="flex-1 min-w-0 space-y-4 order-2 lg:order-1">
             <!-- Chart Card -->
-            <div class="glass-card rounded-xl p-6">
-                <div class="flex items-center justify-between mb-4">
+            <div class="glass-card rounded-xl p-4">
+                <div class="flex items-center justify-between mb-2">
                     <div>
-                        <h3 class="text-lg font-semibold text-white">Commands by Shard</h3>
-                        <p class="text-sm text-slate-400">Grouped by <span class="text-cyan-400" x-text="groupByLabel()"></span></p>
+                        <h3 class="text-base font-semibold text-white">Commands by Shard</h3>
+                        <p class="text-xs text-slate-400">Grouped by <span class="text-cyan-400" x-text="groupByLabel()"></span></p>
                     </div>
-                    <div class="flex items-center gap-2">
+                    <div class="flex items-center gap-3">
                         <!-- Chart Type -->
                         <div class="flex bg-slate-800 rounded-lg p-0.5" :class="loading && 'opacity-50 pointer-events-none'">
-                            <button @click="chartType = 'bar'; updateChart()" :disabled="loading"
+                            <button @click="changeChartType('bar')" :disabled="loading"
                                     :class="chartType === 'bar' ? 'bg-cyan-600 text-white' : 'text-slate-400 hover:text-white'"
                                     class="p-2 rounded-md transition-colors" title="Bar Chart">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                                 </svg>
                             </button>
-                            <button @click="chartType = 'horizontalBar'; updateChart()" :disabled="loading"
+                            <button @click="changeChartType('horizontalBar')" :disabled="loading"
                                     :class="chartType === 'horizontalBar' ? 'bg-cyan-600 text-white' : 'text-slate-400 hover:text-white'"
                                     class="p-2 rounded-md transition-colors" title="Horizontal Bar">
                                 <svg class="w-4 h-4 rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -79,11 +79,54 @@
                                 </svg>
                             </button>
                         </div>
+                        <!-- Share button -->
+                        <div x-data="{ sharing: false, copied: false, showTooltip: false }" class="relative">
+                            <button 
+                                @click="async () => { 
+                                    sharing = true; 
+                                    showTooltip = false;
+                                    const result = await UrlState.copyUrl(true); 
+                                    sharing = false; 
+                                    if (result.copied) { 
+                                        copied = true; 
+                                        setTimeout(() => copied = false, 2000); 
+                                    } 
+                                }"
+                                @mouseenter="showTooltip = true"
+                                @mouseleave="showTooltip = false"
+                                :disabled="sharing"
+                                class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800/50 text-slate-300 hover:text-white hover:bg-slate-700 transition-all disabled:opacity-50">
+                                <svg x-show="!sharing && !copied" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                                </svg>
+                                <svg x-show="sharing" x-cloak class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                                </svg>
+                                <svg x-show="copied" x-cloak class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                </svg>
+                                <span x-text="copied ? 'Copied!' : 'Share'"></span>
+                            </button>
+                            <!-- Tooltip -->
+                            <div x-show="showTooltip && !sharing && !copied" 
+                                 x-cloak
+                                 x-transition:enter="transition ease-out duration-150"
+                                 x-transition:enter-start="opacity-0 translate-y-1"
+                                 x-transition:enter-end="opacity-100 translate-y-0"
+                                 class="absolute top-full right-0 mt-2 w-56 z-50">
+                                <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-3 text-xs">
+                                    <p class="text-white font-medium mb-1">Share this view</p>
+                                    <p class="text-slate-400 leading-relaxed">Creates a short URL with your current filters, groupings, and chart settings.</p>
+                                    <div class="absolute -top-1.5 right-4 w-3 h-3 bg-slate-800 border-l border-t border-slate-700 rotate-45"></div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 
                 <!-- Chart Container - always visible -->
-                <div class="relative" :class="chartType === 'horizontalBar' ? 'h-auto min-h-[320px]' : 'h-80'">
+                <div class="relative w-full" :class="chartType === 'horizontalBar' ? 'h-auto min-h-[380px]' : 'h-[380px]'">
                     <!-- Loading Overlay - on top of chart -->
                     <div x-show="loading" class="absolute inset-0 bg-slate-900/80 flex items-center justify-center z-10 rounded-lg">
                         <div class="flex flex-col items-center gap-3">
@@ -95,7 +138,7 @@
                         </div>
                     </div>
                     <!-- Canvas - always in DOM, use x-ref instead of id -->
-                    <canvas x-ref="shardCanvas"></canvas>
+                    <canvas x-ref="shardCanvas" class="w-full h-full"></canvas>
                 </div>
             </div>
 
@@ -147,7 +190,7 @@
         </div>
 
         <!-- Sidebar Controls -->
-        <div class="w-full lg:w-72 flex-shrink-0 space-y-4 order-1 lg:order-2">
+        <div class="w-full lg:w-64 flex-shrink-0 space-y-4 order-1 lg:order-2">
             <!-- Group By -->
             <div class="glass-card rounded-xl p-4" :class="loading && 'opacity-50 pointer-events-none'">
                 <h4 class="text-sm font-semibold text-white mb-3 flex items-center gap-2">
@@ -365,9 +408,74 @@ function shardDistributionApp() {
         optionsLoading: false,
         requestId: 0,  // Track request order to prevent race conditions
 
+        // Custom hydrate for nested filters object
+        hydrateFromUrl() {
+            const params = new URLSearchParams(window.location.search);
+            
+            const groupBy = params.get('group_by');
+            if (groupBy) this.groupBy = groupBy;
+            
+            const chartType = params.get('chart_type');
+            if (chartType) this.chartType = chartType;
+            
+            // Nested filters
+            const filterCommand = params.get('filter_command');
+            if (filterCommand) this.filters.command = filterCommand;
+            
+            const filterClientIp = params.get('filter_client_ip');
+            if (filterClientIp) this.filters.client_ip = filterClientIp;
+            
+            const filterKeyPattern = params.get('filter_key_pattern');
+            if (filterKeyPattern) this.filters.key_pattern = filterKeyPattern;
+            
+            const filterSignature = params.get('filter_signature');
+            if (filterSignature) this.filters.command_signature = filterSignature;
+        },
+
+        // Custom sync for nested filters object
+        syncToUrl(push = true) {
+            const params = new URLSearchParams();
+            
+            if (this.groupBy && this.groupBy !== 'command_signature') {
+                params.set('group_by', this.groupBy);
+            }
+            if (this.chartType && this.chartType !== 'bar') {
+                params.set('chart_type', this.chartType);
+            }
+            if (this.filters.command) {
+                params.set('filter_command', this.filters.command);
+            }
+            if (this.filters.client_ip) {
+                params.set('filter_client_ip', this.filters.client_ip);
+            }
+            if (this.filters.key_pattern) {
+                params.set('filter_key_pattern', this.filters.key_pattern);
+            }
+            if (this.filters.command_signature) {
+                params.set('filter_signature', this.filters.command_signature);
+            }
+            
+            const queryString = params.toString();
+            const url = queryString ? `${location.pathname}?${queryString}` : location.pathname;
+            
+            if (push) {
+                history.pushState({ urlState: true }, '', url);
+            } else {
+                history.replaceState({ urlState: true }, '', url);
+            }
+        },
+
         init() {
             this.loading = true;
+            // Hydrate state from URL on init
+            this.hydrateFromUrl();
             this.refresh();
+            
+            // Handle browser back/forward navigation
+            window.addEventListener('popstate', () => {
+                this.hydrateFromUrl();
+                this.refresh();
+            });
         },
         
         async changeGroupBy(newGroupBy) {
@@ -375,7 +483,15 @@ function shardDistributionApp() {
             if (this.groupBy === newGroupBy) return;  // Same value, do nothing
             this.loading = true;
             this.groupBy = newGroupBy;
+            this.syncToUrl();
             await this.refresh();
+        },
+
+        changeChartType(type) {
+            if (this.chartType === type) return;
+            this.chartType = type;
+            this.syncToUrl(false);  // replaceState, don't push to history
+            this.updateChart();
         },
         
         async refresh() {
@@ -406,6 +522,7 @@ function shardDistributionApp() {
             if (this.loading) return;
             this.loading = true;
             this.filters = { command: '', client_ip: '', key_pattern: '', command_signature: '' };
+            this.syncToUrl();
             await this.refresh();
         },
 
@@ -414,6 +531,7 @@ function shardDistributionApp() {
             this.loading = true;
             this.groupBy = newGroupBy;
             this.filters = { command: '', client_ip: '', key_pattern: '', command_signature: '' };
+            this.syncToUrl();
             await this.refresh();
         },
 
@@ -446,6 +564,7 @@ function shardDistributionApp() {
             if (this.loading) return;
             this.loading = true;
             this.filters[type] = value;
+            this.syncToUrl();
             await this.refresh();
         },
 
@@ -453,12 +572,14 @@ function shardDistributionApp() {
             if (this.loading) return;
             this.loading = true;
             this.filters[filterName] = '';
+            this.syncToUrl();
             await this.refresh();
         },
 
         async onClientIpInput() {
             if (this.loading) return;
             this.loading = true;
+            this.syncToUrl();
             await this.refresh();
         },
 
@@ -641,8 +762,7 @@ function shardDistributionApp() {
                     options: {
                         indexAxis: isHorizontal ? 'y' : 'x',
                         responsive: true,
-                        maintainAspectRatio: !isHorizontal,
-                        aspectRatio: isHorizontal ? undefined : 2,
+                        maintainAspectRatio: false,
                         animation: false,
                         plugins: {
                             legend: {

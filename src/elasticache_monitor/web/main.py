@@ -4,6 +4,8 @@ import logging
 import sys
 import uuid
 import json
+import secrets
+import string
 from datetime import datetime
 from typing import Optional, List
 
@@ -17,7 +19,7 @@ from pathlib import Path
 
 from elasticache_monitor import __version__
 from .db import init_db, get_db, get_job_db_context, delete_job_db, job_db_exists, get_job_db_path
-from .models import MonitorJob, MonitorShard, RedisCommand, KeySizeCache, JobStatus, ShardStatus
+from .models import MonitorJob, MonitorShard, RedisCommand, KeySizeCache, JobStatus, ShardStatus, ShortUrl
 from .runner import run_monitoring_job, sample_key_sizes, cancel_job, is_job_running
 from ..endpoints import get_replica_endpoints, get_all_endpoints
 
@@ -1799,3 +1801,97 @@ async def get_filter_options(
             "shards": shards,
             "matching_count": matching_count
         })
+
+
+# ============================================================================
+# SHORT URL SHARING SYSTEM
+# ============================================================================
+
+def generate_short_id(length: int = 7) -> str:
+    """Generate a short alphanumeric ID for URLs."""
+    alphabet = string.ascii_letters + string.digits
+    return ''.join(secrets.choice(alphabet) for _ in range(length))
+
+
+@app.post("/api/short-urls")
+async def create_short_url(request: Request, db: Session = Depends(get_db)):
+    """Create a short URL for sharing page state.
+    
+    Request body: { "full_url": "/jobs/123/timeline?group_by=command" }
+    Response: { "short_url": "/s/Ab3kP9", "full_url": "...", "is_new": true }
+    """
+    try:
+        body = await request.json()
+        full_url = body.get("full_url", "").strip()
+        
+        if not full_url:
+            return JSONResponse({"error": "full_url is required"}, status_code=400)
+        
+        # Validate URL starts with /
+        if not full_url.startswith("/"):
+            return JSONResponse({"error": "full_url must start with /"}, status_code=400)
+        
+        # Check if this URL already exists (deduplication)
+        existing = db.query(ShortUrl).filter(ShortUrl.full_url == full_url).first()
+        if existing:
+            return JSONResponse({
+                "short_url": f"/s/{existing.id}",
+                "full_url": existing.full_url,
+                "is_new": False
+            })
+        
+        # Generate unique short ID
+        for _ in range(10):  # Max attempts
+            short_id = generate_short_id()
+            if not db.query(ShortUrl).filter(ShortUrl.id == short_id).first():
+                break
+        else:
+            return JSONResponse({"error": "Could not generate unique short URL"}, status_code=500)
+        
+        # Create new short URL
+        short_url = ShortUrl(
+            id=short_id,
+            full_url=full_url,
+            created_at=datetime.utcnow(),
+            hit_count=0
+        )
+        db.add(short_url)
+        db.commit()
+        
+        logger.info(f"Created short URL: /s/{short_id} -> {full_url}")
+        
+        return JSONResponse({
+            "short_url": f"/s/{short_id}",
+            "full_url": full_url,
+            "is_new": True
+        })
+        
+    except Exception as e:
+        logger.error(f"Error creating short URL: {e}")
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+@app.get("/s/{short_id}")
+async def redirect_short_url(short_id: str, db: Session = Depends(get_db)):
+    """Redirect from short URL to full URL."""
+    short_url = db.query(ShortUrl).filter(ShortUrl.id == short_id).first()
+    
+    if not short_url:
+        return HTMLResponse(
+            content="<h1>404 - Short URL Not Found</h1><p>This link may have expired or never existed.</p>",
+            status_code=404
+        )
+    
+    # Increment hit count
+    short_url.hit_count = (short_url.hit_count or 0) + 1
+    db.commit()
+    
+    return RedirectResponse(url=short_url.full_url, status_code=302)
+
+
+# ============================================================================
+# STATIC FILES (JS, CSS)
+# ============================================================================
+
+# Mount static files directory
+app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")

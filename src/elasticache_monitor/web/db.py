@@ -117,9 +117,38 @@ def _migrate_metadata_db_schema() -> None:
         logger.debug(f"Could not migrate metadata schema: {e}")
 
 
+def _ensure_short_urls_table() -> None:
+    """Ensure the short_urls table exists for URL sharing feature."""
+    try:
+        with metadata_engine.connect() as conn:
+            # Check if table exists
+            result = conn.execute(text(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='short_urls'"
+            ))
+            if not result.fetchone():
+                # Create the table
+                conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS short_urls (
+                        id TEXT PRIMARY KEY,
+                        full_url TEXT NOT NULL,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        hit_count INTEGER DEFAULT 0
+                    )
+                """))
+                # Create index on full_url for deduplication lookups
+                conn.execute(text(
+                    "CREATE INDEX IF NOT EXISTS ix_short_urls_full_url ON short_urls(full_url)"
+                ))
+                conn.commit()
+                logger.info("Created short_urls table for URL sharing")
+    except Exception as e:
+        logger.debug(f"Could not create short_urls table: {e}")
+
+
 # Run migration immediately at module load time
 # This ensures columns exist before any ORM queries
 _migrate_metadata_db_schema()
+_ensure_short_urls_table()
 
 
 def init_metadata_db() -> None:
@@ -127,6 +156,7 @@ def init_metadata_db() -> None:
     MetadataBase.metadata.create_all(bind=metadata_engine)
     # Migration already ran at module load, but run again to be safe
     _migrate_metadata_db_schema()
+    _ensure_short_urls_table()
 
 
 def get_db() -> Generator[Session, None, None]:

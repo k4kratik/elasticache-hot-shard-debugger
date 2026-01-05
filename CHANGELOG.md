@@ -6,6 +6,43 @@ All notable changes to the ElastiCache Hot Shard Debugger Web UI.
 
 ## Session: January 6, 2026
 
+### Feature: Shareable URLs & Short Links (Grafana-style)
+
+#### Overview
+Implemented a comprehensive URL state management system inspired by Grafana/Kibana. All page state is now preserved in the URL, making dashboards bookmarkable, shareable, and browser navigation-friendly.
+
+#### Added
+- **URL State Management** (`/static/js/url_state.js`): Central utility for syncing page state to/from URL
+- **Short URL System**: Server-backed URL shortening for easy sharing
+  - `POST /api/short-urls` - Create short URLs (with deduplication)
+  - `GET /s/{id}` - Redirect to full URL (with hit tracking)
+- **Share Button**: Contextual share button near chart controls with hover tooltip
+- **Browser Navigation**: Back/forward buttons now work correctly with page state
+
+#### Pages with URL State
+- **Timeline Analysis**: group_by, granularity, chart_type, shards, filters
+- **Shard Distribution**: group_by, chart_type, filters
+
+#### How It Works
+1. **URL is the source of truth** - All state changes update the URL
+2. **Reload-safe** - Refreshing preserves all filters and settings
+3. **Shareable** - Copy URL directly or use Share button for short link
+4. **Back/Forward** - Browser navigation works as expected
+
+#### Database Changes
+- Added `short_urls` table for storing URL mappings with hit counts
+
+#### Files Changed
+- `src/elasticache_monitor/web/static/js/url_state.js` (new file)
+- `src/elasticache_monitor/web/models.py` (added `ShortUrl` model)
+- `src/elasticache_monitor/web/db.py` (migration for `short_urls` table)
+- `src/elasticache_monitor/web/main.py` (API endpoints + static files mount)
+- `src/elasticache_monitor/web/templates/base.html` (loads url_state.js)
+- `src/elasticache_monitor/web/templates/timeline.html` (URL state + Share button)
+- `src/elasticache_monitor/web/templates/shard_distribution.html` (URL state + Share button + chart optimization)
+
+---
+
 ### Critical Bug Fix: Chart.js Crash on Rapid Clicking
 
 #### Problem
